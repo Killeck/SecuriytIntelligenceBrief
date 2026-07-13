@@ -1,22 +1,22 @@
-name: Test combined daily security briefing
+name: Test DEFCON daily security briefing
 
 on:
   workflow_dispatch:
     inputs:
       lookback_hours:
-        description: News reporting window in hours
+        description: Use auto, 36 or 72
         required: true
-        default: "168"
+        default: "auto"
         type: string
       kev_lookback_days:
-        description: CISA KEV lookback in calendar days
+        description: Use auto or a number of calendar days
         required: true
-        default: "7"
+        default: "auto"
         type: string
       max_items:
         description: Maximum total developments in the email
         required: true
-        default: "25"
+        default: "40"
         type: string
 
 permissions:
@@ -25,7 +25,7 @@ permissions:
 jobs:
   send-combined-brief:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 20
 
     steps:
       - name: Check out repository
@@ -39,12 +39,14 @@ jobs:
       - name: Install dependencies
         run: python -m pip install --requirement requirements.txt
 
-      - name: Send combined security briefing
+      - name: Send DEFCON security briefing
         env:
           GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           NEWS_LOOKBACK_HOURS: ${{ inputs.lookback_hours }}
           KEV_LOOKBACK_DAYS: ${{ inputs.kev_lookback_days }}
           NEWS_MAX_ITEMS: ${{ inputs.max_items }}
+          UPCOMING_GOVERNANCE_DAYS: "14"
         run: python src/send_combined_brief.py
