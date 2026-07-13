@@ -11,6 +11,8 @@ import sys
 import time
 from dataclasses import dataclass, field
 from datetime import date, datetime, timedelta, timezone
+from pathlib import Path
+from zoneinfo import ZoneInfo
 from email.message import EmailMessage
 from typing import Any, Iterable
 from urllib.parse import urljoin
@@ -36,6 +38,93 @@ CISA_KEV_CATALOGUE = (
     "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
 )
 
+NVD_CVE_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+OSLO_TIMEZONE = ZoneInfo("Europe/Oslo")
+UPCOMING_GOVERNANCE_FILE = Path(
+    os.getenv(
+        "UPCOMING_GOVERNANCE_FILE",
+        "config/upcoming_governance.json",
+    )
+)
+
+MONITORED_GOVERNANCE_TOPICS = (
+    "NSM updates",
+    "Sikkerhetsloven",
+    "NIS2",
+    "ISO/IEC 27001",
+    "ISO 50001",
+    "ISO 9001",
+    "ISO 14001",
+    "ISO/IEC 33000 series",
+)
+
+DEFCON_LEVELS = {
+    1: {
+        "label": "Critical",
+        "colour": "#B71C1C",
+        "text_colour": "#FFFFFF",
+    },
+    2: {
+        "label": "High",
+        "colour": "#E65100",
+        "text_colour": "#FFFFFF",
+    },
+    3: {
+        "label": "Elevated",
+        "colour": "#F9A825",
+        "text_colour": "#111111",
+    },
+    4: {
+        "label": "Guarded",
+        "colour": "#1565C0",
+        "text_colour": "#FFFFFF",
+    },
+    5: {
+        "label": "Low",
+        "colour": "#2E7D32",
+        "text_colour": "#FFFFFF",
+    },
+}
+
+ZERO_DAY_TERMS = (
+    "zero-day",
+    "zero day",
+    "0-day",
+    "0day",
+    "nulldag",
+)
+
+EFFECTIVE_DATE_TERMS = (
+    "effective",
+    "takes effect",
+    "enters into force",
+    "entry into force",
+    "applies from",
+    "applicable from",
+    "enforcement begins",
+    "enforced from",
+    "deadline",
+    "go live",
+    "goes live",
+    "transition period",
+    "compliance date",
+    "implementation date",
+    "trer i kraft",
+    "ikrafttredelse",
+    "gjelder fra",
+    "håndheves fra",
+    "frist",
+    "overgangsperiode",
+)
+
+GOVERNANCE_SECTIONS = {
+    "Norwegian Security Governance",
+    "Compliance",
+    "Standards",
+    "GRC",
+    "Nordic Impact",
+}
+
 
 @dataclass(frozen=True)
 class Source:
@@ -50,6 +139,7 @@ class Source:
     exclude_patterns: tuple[str, ...] = ()
     max_candidates: int = 25
     locale: str = "en"
+    topic_keywords: tuple[str, ...] = ()
 
 
 @dataclass
@@ -67,7 +157,10 @@ class Item:
     exploited: bool = False
     kev: bool = False
     ransomware: bool = False
-    cvss: str = "Not available"
+    zero_day: bool = False
+    cvss_score: float | None = None
+    cvss_severity: str = "Not available"
+    cvss_vector: str = ""
     affected: str = ""
     action: str = ""
     why: str = ""
@@ -80,7 +173,7 @@ RSS_SOURCES = (
         url="https://www.microsoft.com/en-us/security/blog/feed/",
         source_type="rss",
         base_score=30,
-        section="Threat Intelligence",
+        section="Microsoft",
     ),
     Source(
         name="AWS Security Blog",
@@ -145,14 +238,80 @@ HTML_SOURCES = (
         vendor="Fortinet",
         url="https://www.fortiguard.com/psirt",
         source_type="html",
-        base_score=35,
-        section="Vendor Advisories",
+        base_score=40,
+        section="Fortinet",
         selectors=(
             "a[href*='/psirt/FG-IR-']",
             "a[href*='/psirt/fg-ir-']",
         ),
         include_patterns=("/psirt/",),
+        max_candidates=40,
+    ),
+    Source(
+        name="FortiGuard Labs Threat Research",
+        vendor="Fortinet",
+        url="https://www.fortinet.com/blog/threat-research",
+        source_type="html",
+        base_score=32,
+        section="Fortinet",
+        selectors=(
+            "h2 a[href]",
+            "h3 a[href]",
+        ),
+        include_patterns=("/blog/threat-research/",),
+        exclude_patterns=(
+            "/blog/threat-research$",
+            "customer-success",
+            "webinar",
+        ),
         max_candidates=35,
+    ),
+    Source(
+        name="HPE Security Bulletin Library",
+        vendor="HPE",
+        url=(
+            "https://support.hpe.com/connect/s/"
+            "securitybulletinlibrary?language=en_US"
+        ),
+        source_type="html",
+        base_score=38,
+        section="HPE",
+        selectors=(
+            "a[href*='docDisplay'][href*='hpesb']",
+            "a[href*='docDisplay'][href*='HPESB']",
+            "article a[href]",
+            "table a[href]",
+        ),
+        include_patterns=("hpesb",),
+        max_candidates=45,
+    ),
+    Source(
+        name="HPE Networking Security Advisories",
+        vendor="HPE",
+        url=(
+            "https://www.hpe.com/us/en/networking/"
+            "security-advisories.html"
+        ),
+        source_type="html",
+        base_score=38,
+        section="HPE",
+        selectors=(
+            "main a[href]",
+            "article a[href]",
+            "table a[href]",
+            "h2 a[href]",
+            "h3 a[href]",
+        ),
+        include_patterns=("hpe.com",),
+        exclude_patterns=(
+            "/products/",
+            "/services/",
+            "/contact/",
+            "/events/",
+            "privacy",
+            "terms",
+        ),
+        max_candidates=45,
     ),
     Source(
         name="Apple Security Releases",
@@ -160,7 +319,7 @@ HTML_SOURCES = (
         url="https://support.apple.com/en-us/100100",
         source_type="html",
         base_score=30,
-        section="Vendor Advisories",
+        section="Other Vendor Advisories",
         selectors=(
             "table a[href]",
             "h2 a[href]",
@@ -189,6 +348,226 @@ HTML_SOURCES = (
         include_patterns=("sec.okta.com/articles/",),
         exclude_patterns=("/articles/$",),
         max_candidates=25,
+    ),
+    Source(
+        name="ENISA News",
+        vendor="ENISA",
+        url="https://www.enisa.europa.eu/news",
+        source_type="html",
+        base_score=32,
+        section="Compliance",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        include_patterns=("enisa.europa.eu",),
+        exclude_patterns=(
+            "/events/",
+            "/about-enisa/",
+            "/topics/",
+            "/publications/",
+            "vacancies",
+        ),
+        max_candidates=45,
+    ),
+    Source(
+        name="NIST CSRC News",
+        vendor="NIST",
+        url="https://csrc.nist.gov/News",
+        source_type="html",
+        base_score=30,
+        section="Standards",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+            ".news-item a[href]",
+        ),
+        include_patterns=("csrc.nist.gov",),
+        exclude_patterns=(
+            "/events/",
+            "/projects/",
+            "/publications/",
+            "#",
+        ),
+        max_candidates=40,
+    ),
+    Source(
+        name="PCI Security Standards Council",
+        vendor="PCI SSC",
+        url="https://blog.pcisecuritystandards.org/",
+        source_type="html",
+        base_score=30,
+        section="Compliance",
+        selectors=(
+            "article h2 a[href]",
+            "article h3 a[href]",
+            "h2 a[href]",
+            "h3 a[href]",
+        ),
+        include_patterns=("pcisecuritystandards.org",),
+        exclude_patterns=(
+            "/tag/",
+            "/author/",
+            "/category/",
+        ),
+        max_candidates=35,
+    ),
+    Source(
+        name="ISACA News and Trends",
+        vendor="ISACA",
+        url="https://www.isaca.org/resources/news-and-trends",
+        source_type="html",
+        base_score=24,
+        section="GRC",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        include_patterns=("isaca.org",),
+        exclude_patterns=(
+            "/credentialing/",
+            "/training-and-events/",
+            "/membership/",
+            "/career-centre/",
+        ),
+        max_candidates=35,
+    ),
+
+    Source(
+        name="NSM Updates",
+        vendor="NSM Norway",
+        url="https://nsm.no/aktuelt/",
+        source_type="html",
+        base_score=40,
+        section="Norwegian Security Governance",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+            "main a[href]",
+        ),
+        include_patterns=("nsm.no/",),
+        exclude_patterns=(
+            "#",
+            "kontakt",
+            "personvern",
+            "tilgjengelighet",
+        ),
+        max_candidates=50,
+        locale="no",
+        topic_keywords=(
+            "sikkerhetsloven",
+            "nis2",
+            "digital sikkerhet",
+            "cybersikkerhet",
+            "nasjonal sikkerhet",
+            "sikkerhetsstyring",
+            "risiko",
+        ),
+    ),
+    Source(
+        name="Norwegian Government NIS2 Search",
+        vendor="Norwegian Government",
+        url="https://www.regjeringen.no/no/sok/id86008/?term=NIS2",
+        source_type="html",
+        base_score=42,
+        section="Norwegian Security Governance",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+            "main a[href]",
+        ),
+        include_patterns=("regjeringen.no",),
+        exclude_patterns=(
+            "#",
+            "/tema/",
+            "/departementer/",
+            "kontakt",
+            "personvern",
+        ),
+        max_candidates=40,
+        locale="no",
+        topic_keywords=(
+            "nis2",
+            "digitalsikkerhetsloven",
+            "cybersikkerhetsloven",
+            "nettverks- og informasjonssystemer",
+        ),
+    ),
+    Source(
+        name="Norwegian Government Security Act Search",
+        vendor="Norwegian Government",
+        url=(
+            "https://www.regjeringen.no/no/sok/"
+            "id86008/?term=sikkerhetsloven"
+        ),
+        source_type="html",
+        base_score=42,
+        section="Norwegian Security Governance",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+            "main a[href]",
+        ),
+        include_patterns=("regjeringen.no",),
+        exclude_patterns=(
+            "#",
+            "/tema/",
+            "/departementer/",
+            "kontakt",
+            "personvern",
+        ),
+        max_candidates=40,
+        locale="no",
+        topic_keywords=(
+            "sikkerhetsloven",
+            "nasjonal sikkerhet",
+            "grunnleggende nasjonale funksjoner",
+            "sikkerhetsklarering",
+        ),
+    ),
+    Source(
+        name="ISO News",
+        vendor="ISO",
+        url="https://www.iso.org/news.html",
+        source_type="html",
+        base_score=35,
+        section="Standards",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+            ".news-item a[href]",
+        ),
+        include_patterns=("iso.org",),
+        exclude_patterns=(
+            "/store.html",
+            "/members.html",
+            "/events.html",
+            "privacy",
+            "terms",
+        ),
+        max_candidates=55,
+        topic_keywords=(
+            "iso/iec 27001",
+            "iso 27001",
+            "iso 50001",
+            "iso 9001",
+            "iso 14001",
+            "iso/iec 330",
+            "iso 33000",
+            "management system standard",
+            "information security management",
+            "quality management",
+            "environmental management",
+            "energy management",
+            "process assessment",
+        ),
     ),
     Source(
         name="NSM Security Warnings",
@@ -292,6 +671,79 @@ CATEGORY_RULES = (
         23,
     ),
     (
+        "Regulatory and compliance",
+        (
+            "nis2",
+            "dora",
+            "gdpr",
+            "regulation",
+            "regulatory",
+            "directive",
+            "implementing act",
+            "compliance",
+            "legal requirement",
+            "mandatory requirement",
+            "reporting deadline",
+            "pci dss",
+            "data protection authority",
+            "tilsyn",
+            "forskrift",
+            "regelverk",
+            "etterlevelse",
+        ),
+        24,
+    ),
+    (
+        "Standards and frameworks",
+        (
+            "cybersecurity standard",
+            "security standard",
+            "standardisation",
+            "standardization",
+            "framework",
+            "guideline",
+            "specification",
+            "certification scheme",
+            "nist csf",
+            "nist rmf",
+            "sp 800-",
+            "iso/iec",
+            "iso 27001",
+            "cmmc",
+            "post-quantum standard",
+            "control baseline",
+            "standarder",
+            "rammeverk",
+            "retningslinje",
+            "sertifiseringsordning",
+        ),
+        22,
+    ),
+    (
+        "Governance risk and assurance",
+        (
+            "cyber governance",
+            "security governance",
+            "risk management",
+            "enterprise risk",
+            "third-party risk",
+            "supplier risk",
+            "assurance",
+            "internal audit",
+            "cyber maturity",
+            "board oversight",
+            "security policy",
+            "control effectiveness",
+            "risk assessment",
+            "resilience governance",
+            "styring",
+            "risikostyring",
+            "revisjon",
+            "modenhet",
+        ),
+        20,
+    ),
+    (
         "Supply-chain security",
         (
             "supply chain",
@@ -387,6 +839,31 @@ WHY = {
     "Identity security": (
         "Identity compromise can provide direct access to cloud, email, "
         "administrative, and business systems."
+    ),
+    "Regulatory and compliance": (
+        "The development may change legal duties, reporting expectations, "
+        "audit scope, implementation timelines, or evidence requirements."
+    ),
+    "Standards and frameworks": (
+        "Changes to standards, frameworks, and certification guidance can "
+        "alter control baselines, assurance expectations, and implementation "
+        "priorities."
+    ),
+    "Governance risk and assurance": (
+        "The development may affect executive accountability, risk treatment, "
+        "control assurance, auditability, or third-party governance."
+    ),
+    "Regulatory and compliance": (
+        "Identify affected entities and deadlines, map the change to current "
+        "controls and evidence, and assign legal or compliance ownership."
+    ),
+    "Standards and frameworks": (
+        "Compare the update with current control mappings, identify material "
+        "gaps, and plan adoption where it improves assurance or compliance."
+    ),
+    "Governance risk and assurance": (
+        "Review governance ownership, risk records, assurance evidence, and "
+        "board or audit reporting for any required changes."
     ),
     "Supply-chain security": (
         "A compromised package, build process, or supplier can propagate access "
@@ -540,6 +1017,49 @@ def integer_setting(
     return value
 
 
+def reporting_window_hours() -> int:
+    raw = os.getenv("NEWS_LOOKBACK_HOURS", "auto").strip().lower()
+
+    if raw in {"", "auto", "automatic"}:
+        local_now = datetime.now(OSLO_TIMEZONE)
+        return 72 if local_now.weekday() == 0 else 36
+
+    try:
+        value = int(raw)
+    except ValueError as error:
+        raise RuntimeError(
+            "NEWS_LOOKBACK_HOURS must be 'auto' or an integer."
+        ) from error
+
+    if value < 1 or value > 720:
+        raise RuntimeError(
+            "NEWS_LOOKBACK_HOURS must be between 1 and 720."
+        )
+
+    return value
+
+
+def kev_lookback_days(lookback_hours: int) -> int:
+    raw = os.getenv("KEV_LOOKBACK_DAYS", "auto").strip().lower()
+
+    if raw in {"", "auto", "automatic"}:
+        return max(1, math.ceil(lookback_hours / 24))
+
+    try:
+        value = int(raw)
+    except ValueError as error:
+        raise RuntimeError(
+            "KEV_LOOKBACK_DAYS must be 'auto' or an integer."
+        ) from error
+
+    if value < 1 or value > 365:
+        raise RuntimeError(
+            "KEV_LOOKBACK_DAYS must be between 1 and 365."
+        )
+
+    return value
+
+
 def clean_text(value: Any) -> str:
     if value is None:
         return ""
@@ -594,6 +1114,43 @@ def parse_date_text(text: str) -> datetime | None:
     return None
 
 
+def parse_all_dates(text: str) -> list[date]:
+    normalised = clean_text(text)
+
+    for norwegian, english in NORWEGIAN_MONTHS.items():
+        normalised = re.sub(
+            rf"\b{norwegian}\b",
+            english,
+            normalised,
+            flags=re.IGNORECASE,
+        )
+
+    parsed_dates: set[date] = set()
+
+    for pattern in DATE_PATTERNS:
+        for match in re.finditer(
+            pattern,
+            normalised,
+            flags=re.IGNORECASE,
+        ):
+            try:
+                parsed = date_parser.parse(
+                    match.group(0),
+                    fuzzy=False,
+                    dayfirst=True,
+                )
+                parsed_dates.add(parsed.date())
+            except (ValueError, OverflowError):
+                continue
+
+    return sorted(parsed_dates)
+
+
+def date_has_effective_context(text: str) -> bool:
+    lowered = clean_text(text).lower()
+    return any(term in lowered for term in EFFECTIVE_DATE_TERMS)
+
+
 def feed_entry_time(entry: Any) -> datetime | None:
     for key in ("published_parsed", "updated_parsed", "created_parsed"):
         parsed = entry.get(key)
@@ -624,15 +1181,56 @@ def classify(text: str, source: Source) -> tuple[str, int]:
         if any(keyword in lowered for keyword in keywords):
             return category, weight
 
-    if source.section == "Vendor Advisories":
+    if source.section in {
+        "Fortinet",
+        "HPE",
+        "Other Vendor Advisories",
+    }:
         if source.vendor == "Apple":
             return "Security update", 15
         return "Vendor advisory", 15
 
+    if source.section == "Norwegian Security Governance":
+        return "Governance risk and assurance", 22
+
     if source.section == "Nordic Impact":
         return "Nordic warning", 18
 
+    if source.section == "Compliance":
+        return "Regulatory and compliance", 18
+
+    if source.section == "Standards":
+        return "Standards and frameworks", 18
+
+    if source.section == "GRC":
+        return "Governance risk and assurance", 16
+
     return "General security", 0
+
+
+def route_section(category: str, source: Source) -> str:
+    if source.vendor == "Fortinet":
+        return "Fortinet"
+
+    if source.vendor == "HPE":
+        return "HPE"
+
+    if source.vendor == "Microsoft":
+        return "Microsoft"
+
+    if category == "Regulatory and compliance":
+        return "Compliance"
+
+    if category == "Standards and frameworks":
+        return "Standards"
+
+    if source.section == "Norwegian Security Governance":
+        return "Norwegian Security Governance"
+
+    if category == "Governance risk and assurance":
+        return "GRC"
+
+    return source.section
 
 
 def suppress_marketing(text: str) -> bool:
@@ -673,6 +1271,12 @@ def build_item(
 
     combined = f"{title} {summary}"
 
+    if source.topic_keywords and not any(
+        keyword.lower() in combined.lower()
+        for keyword in source.topic_keywords
+    ):
+        return None
+
     if suppress_marketing(combined):
         return None
 
@@ -693,8 +1297,13 @@ def build_item(
     if "critical" in combined.lower() or "kritisk" in combined.lower():
         score += 10
 
-    exploited = category == "Active exploitation"
+    lowered_combined = combined.lower()
+    zero_day = any(term in lowered_combined for term in ZERO_DAY_TERMS)
+    exploited = category == "Active exploitation" or zero_day
     ransomware = category == "Ransomware"
+
+    if zero_day:
+        score += 35
 
     affected = (
         f"Organisations using {source.vendor} products or services, or "
@@ -709,12 +1318,13 @@ def build_item(
         published=published,
         source=source.name,
         vendor=source.vendor,
-        section=source.section,
+        section=route_section(category, source),
         category=category,
         score=score,
         cves=cves,
         exploited=exploited,
         ransomware=ransomware,
+        zero_day=zero_day,
         affected=affected,
         action=ACTIONS[category],
         why=WHY[category],
@@ -1048,6 +1658,286 @@ def fetch_kev(lookback_days: int) -> list[Item]:
     return items
 
 
+def select_cvss_metric(cve_record: dict[str, Any]) -> tuple[
+    float | None,
+    str,
+    str,
+]:
+    metrics = cve_record.get("metrics", {})
+
+    for metric_name in (
+        "cvssMetricV40",
+        "cvssMetricV31",
+        "cvssMetricV30",
+        "cvssMetricV2",
+    ):
+        candidates = metrics.get(metric_name, [])
+
+        if not candidates:
+            continue
+
+        selected = next(
+            (
+                metric
+                for metric in candidates
+                if metric.get("type") == "Primary"
+            ),
+            candidates[0],
+        )
+        data = selected.get("cvssData", {})
+        score = data.get("baseScore")
+        severity = (
+            data.get("baseSeverity")
+            or selected.get("baseSeverity")
+            or "Not available"
+        )
+        vector = data.get("vectorString", "")
+
+        try:
+            numeric_score = float(score)
+        except (TypeError, ValueError):
+            numeric_score = None
+
+        return numeric_score, str(severity), str(vector)
+
+    return None, "Not available", ""
+
+
+def enrich_nvd(
+    items: list[Item],
+    warnings: list[str],
+) -> None:
+    cve_to_items: dict[str, list[Item]] = {}
+
+    for item in items:
+        for cve in item.cves:
+            cve_to_items.setdefault(cve, []).append(item)
+
+    if not cve_to_items:
+        return
+
+    api_key = os.getenv("NVD_API_KEY", "").strip()
+    default_limit = 40 if api_key else 12
+    max_cves = integer_setting(
+        "NVD_MAX_CVES",
+        default=default_limit,
+        minimum=1,
+        maximum=100,
+    )
+
+    cves = sorted(cve_to_items)[:max_cves]
+
+    if len(cve_to_items) > max_cves:
+        warnings.append(
+            f"NVD enrichment limited to {max_cves} of "
+            f"{len(cve_to_items)} CVEs. Add a free NVD_API_KEY or raise "
+            "NVD_MAX_CVES to enrich more records."
+        )
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/json",
+    }
+
+    if api_key:
+        headers["apiKey"] = api_key
+
+    pause = 0.75 if api_key else 6.2
+
+    for index, cve in enumerate(cves):
+        try:
+            response = requests.get(
+                NVD_CVE_API,
+                params={"cveId": cve},
+                headers=headers,
+                timeout=45,
+            )
+            response.raise_for_status()
+            payload = response.json()
+            vulnerabilities = payload.get("vulnerabilities", [])
+
+            if not vulnerabilities:
+                continue
+
+            score, severity, vector = select_cvss_metric(
+                vulnerabilities[0].get("cve", {})
+            )
+
+            for item in cve_to_items[cve]:
+                if score is not None and (
+                    item.cvss_score is None or score > item.cvss_score
+                ):
+                    item.cvss_score = score
+                    item.cvss_severity = severity
+                    item.cvss_vector = vector
+
+                    if score == 10.0:
+                        item.score += 40
+                    elif score >= 9.0:
+                        item.score += 20
+                    elif score >= 8.0:
+                        item.score += 10
+
+        except Exception as error:
+            warnings.append(
+                f"NVD {cve}: {type(error).__name__}: {error}"
+            )
+
+        if index < len(cves) - 1:
+            time.sleep(pause)
+
+
+def load_configured_governance_events(
+    today: date,
+    days_ahead: int,
+    warnings: list[str],
+) -> list[dict[str, str]]:
+    if not UPCOMING_GOVERNANCE_FILE.exists():
+        warnings.append(
+            f"Upcoming governance file not found: "
+            f"{UPCOMING_GOVERNANCE_FILE}"
+        )
+        return []
+
+    try:
+        payload = json.loads(
+            UPCOMING_GOVERNANCE_FILE.read_text(encoding="utf-8")
+        )
+    except Exception as error:
+        warnings.append(
+            f"Upcoming governance file: "
+            f"{type(error).__name__}: {error}"
+        )
+        return []
+
+    end_date = today + timedelta(days=days_ahead)
+    events: list[dict[str, str]] = []
+
+    for event in payload.get("events", []):
+        if event.get("enabled", True) is False:
+            continue
+
+        raw_date = str(event.get("date", "")).strip()
+
+        try:
+            event_date = date.fromisoformat(raw_date)
+        except ValueError:
+            warnings.append(
+                f"Invalid upcoming governance date: {raw_date}"
+            )
+            continue
+
+        if not today <= event_date <= end_date:
+            continue
+
+        events.append(
+            {
+                "date": event_date.isoformat(),
+                "title": clean_text(event.get("title")),
+                "topic": clean_text(event.get("topic")),
+                "source": clean_text(event.get("source")),
+                "source_url": clean_text(event.get("source_url")),
+                "notes": clean_text(event.get("notes")),
+                "origin": "Configured event register",
+            }
+        )
+
+    return events
+
+
+def detect_governance_go_live_events(
+    items: list[Item],
+    today: date,
+    days_ahead: int,
+) -> list[dict[str, str]]:
+    end_date = today + timedelta(days=days_ahead)
+    events: list[dict[str, str]] = []
+
+    for item in items:
+        if item.section not in GOVERNANCE_SECTIONS:
+            continue
+
+        combined = f"{item.title}. {item.summary}"
+
+        if not date_has_effective_context(combined):
+            continue
+
+        for event_date in parse_all_dates(combined):
+            if not today <= event_date <= end_date:
+                continue
+
+            events.append(
+                {
+                    "date": event_date.isoformat(),
+                    "title": item.title,
+                    "topic": item.category,
+                    "source": item.source,
+                    "source_url": item.link,
+                    "notes": truncate(item.summary, 320),
+                    "origin": "Detected in current source item",
+                }
+            )
+
+    return events
+
+
+def deduplicate_governance_events(
+    events: list[dict[str, str]],
+) -> list[dict[str, str]]:
+    unique: dict[tuple[str, str], dict[str, str]] = {}
+
+    for event in events:
+        key = (
+            event.get("date", ""),
+            event.get("title", "").lower(),
+        )
+        unique[key] = event
+
+    return sorted(
+        unique.values(),
+        key=lambda event: (
+            event.get("date", ""),
+            event.get("title", ""),
+        ),
+    )
+
+
+def select_final_items(
+    items: list[Item],
+    max_items: int,
+) -> list[Item]:
+    ordered = sorted(
+        items,
+        key=lambda item: (item.score, item.published),
+        reverse=True,
+    )
+
+    mandatory = [
+        item
+        for item in ordered
+        if item.zero_day
+        or item.cvss_score == 10.0
+        or item.kev
+    ]
+
+    selected: list[Item] = []
+    seen: set[str] = set()
+
+    for item in mandatory + ordered:
+        key = item.link.lower().rstrip("/")
+
+        if key in seen:
+            continue
+
+        if len(selected) >= max_items and item not in mandatory:
+            break
+
+        selected.append(item)
+        seen.add(key)
+
+    return selected
+
+
 def deduplicate(items: Iterable[Item]) -> list[Item]:
     unique: dict[str, Item] = {}
 
@@ -1066,6 +1956,8 @@ def deduplicate(items: Iterable[Item]) -> list[Item]:
 
 
 def priority(item: Item) -> str:
+    if item.cvss_score == 10.0 or item.zero_day:
+        return "Critical"
     if item.kev or item.score >= 95:
         return "Critical"
     if item.score >= 70:
@@ -1075,29 +1967,49 @@ def priority(item: Item) -> str:
     return "Monitor"
 
 
-def overall_threat_level(items: list[Item]) -> str:
-    if any(item.kev and item.ransomware for item in items):
-        return "High"
-
-    if any(item.kev or item.score >= 95 for item in items):
-        return "Elevated"
-
+def defcon_status(items: list[Item]) -> dict[str, Any]:
     if any(
-        item.category
-        in {
-            "Active exploitation",
-            "Ransomware",
-            "Nation-state activity",
-        }
+        item.cvss_score == 10.0
+        and (item.zero_day or item.exploited or item.kev)
         for item in items
     ):
-        return "Elevated"
+        level = 1
+    elif any(
+        item.zero_day
+        or item.cvss_score == 10.0
+        or (item.kev and item.ransomware)
+        for item in items
+    ):
+        level = 2
+    elif any(
+        item.kev
+        or item.exploited
+        or item.ransomware
+        or item.category == "Nation-state activity"
+        for item in items
+    ):
+        level = 3
+    elif items:
+        level = 4
+    else:
+        level = 5
 
-    return "Guarded" if items else "Low"
+    status = dict(DEFCON_LEVELS[level])
+    status["level"] = level
+    status["display"] = (
+        f"DEFCON {level} — {status['label']}"
+    )
+    return status
 
 
 def immediate_actions(items: list[Item]) -> list[str]:
     actions: list[str] = []
+
+    if any(item.zero_day or item.cvss_score == 10.0 for item in items):
+        actions.append(
+            "Immediately validate exposure to all zero-day and CVSS 10.0 "
+            "vulnerabilities and assign named remediation owners."
+        )
 
     if any(item.kev for item in items):
         actions.append(
@@ -1117,7 +2029,7 @@ def immediate_actions(items: list[Item]) -> list[str]:
             "copies against the reported access techniques."
         )
 
-    if any(item.section == "Vendor Advisories" for item in items):
+    if any(item.section in {"Fortinet", "HPE", "Other Vendor Advisories"} for item in items):
         actions.append(
             "Check the vendor advisory section against deployed products and "
             "current patch or firmware levels."
@@ -1127,6 +2039,24 @@ def immediate_actions(items: list[Item]) -> list[str]:
         actions.append(
             "Assess the NSM warning against Norwegian operations and customer "
             "environments."
+        )
+
+    if any(item.section == "Compliance" for item in items):
+        actions.append(
+            "Review new compliance obligations, affected entities, deadlines, "
+            "and evidence requirements."
+        )
+
+    if any(item.section == "Standards" for item in items):
+        actions.append(
+            "Assess whether standards or framework updates require control "
+            "mapping or implementation changes."
+        )
+
+    if any(item.section == "GRC" for item in items):
+        actions.append(
+            "Review governance ownership, risk treatment, and assurance "
+            "reporting affected by today's GRC developments."
         )
 
     defaults = (
@@ -1155,6 +2085,11 @@ def truncate(value: str, limit: int) -> str:
 
 def render_item_text(item: Item, number: int) -> list[str]:
     cves = ", ".join(item.cves) or "None identified"
+    cvss = (
+        f"{item.cvss_score:.1f} {item.cvss_severity}"
+        if item.cvss_score is not None
+        else "Not available"
+    )
 
     return [
         "",
@@ -1165,6 +2100,8 @@ def render_item_text(item: Item, number: int) -> list[str]:
         f"Category: {item.category}",
         f"Risk: {priority(item)}",
         f"CVEs: {cves}",
+        f"CVSS: {cvss}",
+        f"Zero-day: {'Yes' if item.zero_day else 'No explicit indication'}",
         f"Known exploitation: {'Yes' if item.exploited else 'Not stated'}",
         f"CISA KEV: {'Yes' if item.kev else 'No'}",
         f"Known ransomware use: {'Yes' if item.ransomware else 'Not stated'}",
@@ -1183,13 +2120,16 @@ def render_item_text(item: Item, number: int) -> list[str]:
 
 def render_item_html(item: Item) -> str:
     cves = ", ".join(item.cves) or "None identified"
+    cvss = (
+        f"{item.cvss_score:.1f} {item.cvss_severity}"
+        if item.cvss_score is not None
+        else "Not available"
+    )
 
     return f"""
     <article style="
-        border:1px solid #d0d7de;
-        border-radius:8px;
-        padding:18px;
-        margin:0 0 16px 0;
+        padding:4px 0 0 0;
+        margin:0;
     ">
       <h3 style="margin-top:0">{html.escape(item.title)}</h3>
 
@@ -1213,6 +2153,14 @@ def render_item_html(item: Item) -> str:
         <tr>
           <td style="padding:2px 16px 2px 0"><strong>CVEs</strong></td>
           <td>{html.escape(cves)}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 16px 2px 0"><strong>CVSS</strong></td>
+          <td>{html.escape(cvss)}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 16px 2px 0"><strong>Zero-day</strong></td>
+          <td>{"Yes" if item.zero_day else "No explicit indication"}</td>
         </tr>
         <tr>
           <td style="padding:2px 16px 2px 0">
@@ -1248,6 +2196,12 @@ def render_item_html(item: Item) -> str:
         <a href="{html.escape(item.link, quote=True)}">Open primary source</a>
       </p>
     </article>
+    <hr style="
+        border:0;
+        border-top:1px solid #b8bec5;
+        margin:24px 0;
+        width:100%;
+    ">
     """
 
 
@@ -1255,17 +2209,44 @@ def render_report(
     items: list[Item],
     warnings: list[str],
     lookback_hours: int,
+    upcoming_events: list[dict[str, str]],
+    upcoming_days: int,
 ) -> tuple[str, str]:
-    level = overall_threat_level(items)
-    top = items[:5]
+    status = defcon_status(items)
     actions = immediate_actions(items)
+
+    critical_special = [
+        item
+        for item in items
+        if item.zero_day or item.cvss_score == 10.0
+    ]
+    top = items[:5]
+    major_governance = [
+        item
+        for item in items
+        if item.section in GOVERNANCE_SECTIONS
+        and item.category
+        in {
+            "Regulatory and compliance",
+            "Standards and frameworks",
+            "Governance risk and assurance",
+            "Nordic warning",
+        }
+    ]
 
     section_order = (
         "Known Exploited Vulnerabilities",
-        "Vendor Advisories",
+        "Microsoft",
+        "Fortinet",
+        "HPE",
+        "Other Vendor Advisories",
         "Cloud and Identity",
         "Threat Intelligence",
         "Vulnerability Research",
+        "Norwegian Security Governance",
+        "Compliance",
+        "Standards",
+        "GRC",
         "Nordic Impact",
     )
 
@@ -1276,16 +2257,21 @@ def render_report(
     for item in items:
         grouped.setdefault(item.section, []).append(item)
 
+    monitored_topics = ", ".join(MONITORED_GOVERNANCE_TOPICS)
+
     text = [
         "Daily CISO Cybersecurity Briefing",
         "=" * 36,
         "",
         f"Reporting window: previous {lookback_hours} hours",
-        f"Overall threat level: {level}",
+        f"Overall threat level: {status['display']}",
         f"Included developments: {len(items)}",
+        f"Governance horizon: today through the next {upcoming_days} days",
         "",
         "Executive Summary",
         "-----------------",
+        "",
+        "Top developments",
     ]
 
     if top:
@@ -1297,7 +2283,65 @@ def render_report(
     else:
         text.append("No qualifying developments were collected.")
 
-    text.extend(["", "Immediate actions"])
+    text.extend(["", "Zero-Day and CVSS 10.0"])
+
+    if critical_special:
+        for item in critical_special:
+            markers = []
+            if item.zero_day:
+                markers.append("Zero-Day")
+            if item.cvss_score == 10.0:
+                markers.append("CVSS 10.0")
+            text.append(
+                f"- {', '.join(markers)}: {item.title} "
+                f"— {item.source}"
+            )
+    else:
+        text.append(
+            "No explicit zero-day or CVSS 10.0 item was identified "
+            "during the reporting window."
+        )
+
+    text.extend(["", "Major compliance, standards and governance changes"])
+
+    if major_governance:
+        for item in major_governance:
+            text.append(
+                f"- [{item.section}] {item.title} — {item.source}"
+            )
+    else:
+        text.append(
+            "No material compliance, standards or governance change "
+            "was collected during the reporting window."
+        )
+
+    text.extend(
+        [
+            "",
+            f"Going live today or within {upcoming_days} days",
+        ]
+    )
+
+    if upcoming_events:
+        for event in upcoming_events:
+            text.append(
+                f"- {event['date']}: {event['title']} "
+                f"({event.get('topic') or event.get('source')})"
+            )
+    else:
+        text.append(
+            "No configured or source-detected effective date falls "
+            f"within the next {upcoming_days} days."
+        )
+
+    text.extend(
+        [
+            "",
+            f"Monitored governance topics: {monitored_topics}",
+            "",
+            "Immediate actions",
+        ]
+    )
 
     for action in actions:
         text.append(f"- {action}")
@@ -1305,10 +2349,14 @@ def render_report(
     for section in section_order:
         section_items = grouped.get(section, [])
 
-        if not section_items:
-            continue
-
         text.extend(["", section, "=" * len(section)])
+
+        if not section_items:
+            text.append(
+                "No qualifying updates were collected for this section "
+                "during the reporting window."
+            )
+            continue
 
         for number, item in enumerate(section_items, start=1):
             text.extend(render_item_text(item, number))
@@ -1316,14 +2364,47 @@ def render_report(
     text.extend(
         [
             "",
+            "Upcoming Compliance, Standards and Governance",
+            "---------------------------------------------",
+        ]
+    )
+
+    if upcoming_events:
+        for event in upcoming_events:
+            text.extend(
+                [
+                    f"- Date: {event['date']}",
+                    f"  Event: {event['title']}",
+                    f"  Topic: {event.get('topic') or 'Not specified'}",
+                    f"  Source: {event.get('source') or 'Not specified'}",
+                    f"  Notes: {event.get('notes') or 'None'}",
+                    f"  Link: {event.get('source_url') or 'Not supplied'}",
+                ]
+            )
+    else:
+        text.append(
+            f"No tracked event falls between today and "
+            f"{upcoming_days} days from today."
+        )
+
+    text.extend(
+        [
+            "",
             "CISO Watch List",
             "---------------",
             "- New CISA KEV additions and confirmation of active exploitation.",
+            "- Explicit zero-days and vulnerabilities with CVSS 10.0.",
             "- Internet-facing firewall, VPN, identity, and remote-access flaws.",
             "- Microsoft identity, Azure, and Microsoft 365 attack activity.",
+            "- Fortinet and HPE security advisories affecting deployed estates.",
             "- Ransomware access trends and destructive malware developments.",
             "- Software supply-chain compromise and exposed build credentials.",
-            "- Nordic authority warnings affecting critical infrastructure.",
+            "- NSM warnings and changes relating to Sikkerhetsloven.",
+            "- Norwegian and EEA NIS2 implementation changes and deadlines.",
+            "- ISO/IEC 27001, ISO 50001, ISO 9001, ISO 14001 and "
+            "ISO/IEC 33000-series developments.",
+            "- Compliance deadlines, regulatory interpretation, and audit duties.",
+            "- GRC changes affecting risk ownership and assurance evidence.",
         ]
     )
 
@@ -1341,6 +2422,71 @@ def render_report(
         or "<li>No qualifying developments were collected.</li>"
     )
 
+    special_html = (
+        "".join(
+            "<li>"
+            + html.escape(
+                " / ".join(
+                    marker
+                    for marker in (
+                        "Zero-Day" if item.zero_day else "",
+                        "CVSS 10.0"
+                        if item.cvss_score == 10.0
+                        else "",
+                    )
+                    if marker
+                )
+            )
+            + ": "
+            + html.escape(item.title)
+            + " <em>— "
+            + html.escape(item.source)
+            + "</em></li>"
+            for item in critical_special
+        )
+        or (
+            "<li>No explicit zero-day or CVSS 10.0 item was identified "
+            "during the reporting window.</li>"
+        )
+    )
+
+    governance_html = (
+        "".join(
+            f"<li><strong>{html.escape(item.section)}:</strong> "
+            f"{html.escape(item.title)} "
+            f"<em>— {html.escape(item.source)}</em></li>"
+            for item in major_governance
+        )
+        or (
+            "<li>No material compliance, standards or governance change "
+            "was collected during the reporting window.</li>"
+        )
+    )
+
+    upcoming_html = (
+        "".join(
+            f"<li><strong>{html.escape(event['date'])}:</strong> "
+            f"{html.escape(event['title'])}"
+            + (
+                f" — {html.escape(event.get('topic', ''))}"
+                if event.get("topic")
+                else ""
+            )
+            + (
+                f' [<a href="{html.escape(event.get("source_url", ""), quote=True)}">'
+                "source</a>]"
+                if event.get("source_url")
+                else ""
+            )
+            + "</li>"
+            for event in upcoming_events
+        )
+        or (
+            "<li>No configured or source-detected effective date falls "
+            f"within the next {upcoming_days} days.</li>"
+        )
+    )
+
     actions_html = "".join(
         f"<li>{html.escape(action)}</li>" for action in actions
     )
@@ -1350,10 +2496,17 @@ def render_report(
     for section in section_order:
         section_items = grouped.get(section, [])
 
+        sections_html.append(
+            f"<h2 style='margin-top:32px'>{html.escape(section)}</h2>"
+        )
+
         if not section_items:
+            sections_html.append(
+                "<p><em>No qualifying updates were collected for this "
+                "section during the reporting window.</em></p>"
+            )
             continue
 
-        sections_html.append(f"<h2>{html.escape(section)}</h2>")
         sections_html.extend(
             render_item_html(item) for item in section_items
         )
@@ -1368,6 +2521,15 @@ def render_report(
             )
             + "</ul>"
         )
+
+    badge = (
+        f'<span style="display:inline-block;'
+        f'background:{status["colour"]};'
+        f'color:{status["text_colour"]};'
+        f'font-weight:700;padding:7px 12px;'
+        f'border-radius:5px;">'
+        f'{html.escape(status["display"])}</span>'
+    )
 
     html_report = f"""
     <!doctype html>
@@ -1385,26 +2547,55 @@ def render_report(
       <p>
         <strong>Reporting window:</strong>
         previous {lookback_hours} hours<br>
-        <strong>Overall threat level:</strong> {level}<br>
-        <strong>Included developments:</strong> {len(items)}
+        <strong>Overall threat level:</strong> {badge}<br>
+        <strong>Included developments:</strong> {len(items)}<br>
+        <strong>Governance horizon:</strong>
+        today through the next {upcoming_days} days
       </p>
 
       <h2>Executive Summary</h2>
+
+      <h3>Top developments</h3>
       <ol>{top_html}</ol>
+
+      <h3>Zero-Day and CVSS 10.0</h3>
+      <ul>{special_html}</ul>
+
+      <h3>Major compliance, standards and governance changes</h3>
+      <ul>{governance_html}</ul>
+
+      <h3>Going live today or within {upcoming_days} days</h3>
+      <ul>{upcoming_html}</ul>
+
+      <p>
+        <strong>Monitored governance topics:</strong>
+        {html.escape(monitored_topics)}
+      </p>
 
       <h2>Immediate actions</h2>
       <ul>{actions_html}</ul>
 
       {''.join(sections_html)}
 
+      <h2>Upcoming Compliance, Standards and Governance</h2>
+      <ul>{upcoming_html}</ul>
+
       <h2>CISO Watch List</h2>
       <ul>
         <li>New CISA KEV additions and active exploitation.</li>
+        <li>Explicit zero-days and CVSS 10.0 vulnerabilities.</li>
         <li>Internet-facing firewall, VPN, and identity flaws.</li>
         <li>Microsoft identity, Azure, and Microsoft 365 attacks.</li>
+        <li>Fortinet and HPE security advisories.</li>
         <li>Ransomware access and destructive malware trends.</li>
         <li>Software supply-chain and build credential compromise.</li>
-        <li>Nordic warnings affecting critical infrastructure.</li>
+        <li>NSM, Sikkerhetsloven and Norwegian NIS2 changes.</li>
+        <li>
+          ISO/IEC 27001, ISO 50001, ISO 9001, ISO 14001 and
+          ISO/IEC 33000-series developments.
+        </li>
+        <li>Compliance deadlines and regulatory implementation changes.</li>
+        <li>Governance, risk, audit, and assurance developments.</li>
       </ul>
 
       {warnings_html}
@@ -1449,34 +2640,36 @@ def main() -> int:
         password = required("GMAIL_APP_PASSWORD")
         recipient = required("EMAIL_TO")
 
-        lookback_hours = integer_setting(
-            "NEWS_LOOKBACK_HOURS",
-            default=168,
-            minimum=1,
-            maximum=720,
-        )
+        lookback_hours = reporting_window_hours()
         max_items = integer_setting(
             "NEWS_MAX_ITEMS",
-            default=25,
+            default=40,
             minimum=5,
-            maximum=60,
+            maximum=80,
         )
-        kev_lookback_days = integer_setting(
-            "KEV_LOOKBACK_DAYS",
-            default=7,
+        kev_days = kev_lookback_days(lookback_hours)
+        upcoming_days = integer_setting(
+            "UPCOMING_GOVERNANCE_DAYS",
+            default=14,
             minimum=1,
-            maximum=365,
+            maximum=90,
         )
 
+        local_now = datetime.now(OSLO_TIMEZONE)
         cutoff = datetime.now(timezone.utc) - timedelta(
             hours=lookback_hours
+        )
+
+        print(
+            f"Reporting window: {lookback_hours} hours "
+            f"(Europe/Oslo weekday={local_now.strftime('%A')})"
         )
 
         collected: list[Item] = []
         warnings: list[str] = []
 
         try:
-            kev_items = fetch_kev(kev_lookback_days)
+            kev_items = fetch_kev(kev_days)
             collected.extend(kev_items)
             print(f"CISA KEV: {len(kev_items)} item(s)")
         except Exception as error:
@@ -1510,21 +2703,42 @@ def main() -> int:
                 warnings.append(warning)
                 print(f"WARNING: {warning}", file=sys.stderr)
 
-        items = deduplicate(collected)
-        items.sort(
+        all_items = deduplicate(collected)
+
+        enrich_nvd(all_items, warnings)
+
+        all_items.sort(
             key=lambda item: (item.score, item.published),
             reverse=True,
         )
-        items = items[:max_items]
+        items = select_final_items(all_items, max_items)
+
+        today = local_now.date()
+        configured_events = load_configured_governance_events(
+            today,
+            upcoming_days,
+            warnings,
+        )
+        detected_events = detect_governance_go_live_events(
+            all_items,
+            today,
+            upcoming_days,
+        )
+        upcoming_events = deduplicate_governance_events(
+            configured_events + detected_events
+        )
 
         text_body, html_body = render_report(
             items,
             warnings,
             lookback_hours,
+            upcoming_events,
+            upcoming_days,
         )
 
+        status = defcon_status(items)
         subject = (
-            f"Daily CISO Brief: {overall_threat_level(items)} — "
+            f"{status['display']} | Daily CISO Brief | "
             f"{len(items)} development(s)"
         )
 
@@ -1538,8 +2752,10 @@ def main() -> int:
         )
 
         print(
-            f"Combined briefing sent with {len(items)} item(s) "
-            f"and {len(warnings)} source warning(s)."
+            f"Briefing sent: {status['display']}, "
+            f"{len(items)} item(s), "
+            f"{len(upcoming_events)} upcoming event(s), "
+            f"{len(warnings)} warning(s)."
         )
 
         return 0
