@@ -3,7 +3,6 @@ from __future__ import annotations
 import calendar
 import html
 import json
-import math
 import os
 import re
 import smtplib
@@ -203,6 +202,18 @@ RSS_SOURCES = (
         base_score=24,
         section="Vulnerability Research",
     ),
+
+    Source(
+        name="Google Security Blog",
+        vendor="Google",
+        url=(
+            "https://security.googleblog.com/feeds/posts/"
+            "default?alt=rss"
+        ),
+        source_type="rss",
+        base_score=26,
+        section="Vulnerability Research",
+    ),
     Source(
         name="CrowdStrike Blog",
         vendor="CrowdStrike",
@@ -284,34 +295,6 @@ HTML_SOURCES = (
             "table a[href]",
         ),
         include_patterns=("hpesb",),
-        max_candidates=45,
-    ),
-    Source(
-        name="HPE Networking Security Advisories",
-        vendor="HPE",
-        url=(
-            "https://www.hpe.com/us/en/networking/"
-            "security-advisories.html"
-        ),
-        source_type="html",
-        base_score=38,
-        section="HPE",
-        selectors=(
-            "main a[href]",
-            "article a[href]",
-            "table a[href]",
-            "h2 a[href]",
-            "h3 a[href]",
-        ),
-        include_patterns=("hpe.com",),
-        exclude_patterns=(
-            "/products/",
-            "/services/",
-            "/contact/",
-            "/events/",
-            "privacy",
-            "terms",
-        ),
         max_candidates=45,
     ),
     Source(
@@ -459,78 +442,6 @@ HTML_SOURCES = (
         ),
         max_candidates=50,
         locale="no",
-        topic_keywords=(
-            "sikkerhetsloven",
-            "nis2",
-            "digital sikkerhet",
-            "cybersikkerhet",
-            "nasjonal sikkerhet",
-            "sikkerhetsstyring",
-            "risiko",
-        ),
-    ),
-    Source(
-        name="Norwegian Government NIS2 Search",
-        vendor="Norwegian Government",
-        url="https://www.regjeringen.no/no/sok/id86008/?term=NIS2",
-        source_type="html",
-        base_score=42,
-        section="Norwegian Security Governance",
-        selectors=(
-            "main h2 a[href]",
-            "main h3 a[href]",
-            "article a[href]",
-            "main a[href]",
-        ),
-        include_patterns=("regjeringen.no",),
-        exclude_patterns=(
-            "#",
-            "/tema/",
-            "/departementer/",
-            "kontakt",
-            "personvern",
-        ),
-        max_candidates=40,
-        locale="no",
-        topic_keywords=(
-            "nis2",
-            "digitalsikkerhetsloven",
-            "cybersikkerhetsloven",
-            "nettverks- og informasjonssystemer",
-        ),
-    ),
-    Source(
-        name="Norwegian Government Security Act Search",
-        vendor="Norwegian Government",
-        url=(
-            "https://www.regjeringen.no/no/sok/"
-            "id86008/?term=sikkerhetsloven"
-        ),
-        source_type="html",
-        base_score=42,
-        section="Norwegian Security Governance",
-        selectors=(
-            "main h2 a[href]",
-            "main h3 a[href]",
-            "article a[href]",
-            "main a[href]",
-        ),
-        include_patterns=("regjeringen.no",),
-        exclude_patterns=(
-            "#",
-            "/tema/",
-            "/departementer/",
-            "kontakt",
-            "personvern",
-        ),
-        max_candidates=40,
-        locale="no",
-        topic_keywords=(
-            "sikkerhetsloven",
-            "nasjonal sikkerhet",
-            "grunnleggende nasjonale funksjoner",
-            "sikkerhetsklarering",
-        ),
     ),
     Source(
         name="ISO News",
@@ -854,18 +765,6 @@ WHY = {
         "The development may affect executive accountability, risk treatment, "
         "control assurance, auditability, or third-party governance."
     ),
-    "Regulatory and compliance": (
-        "Identify affected entities and deadlines, map the change to current "
-        "controls and evidence, and assign legal or compliance ownership."
-    ),
-    "Standards and frameworks": (
-        "Compare the update with current control mappings, identify material "
-        "gaps, and plan adoption where it improves assurance or compliance."
-    ),
-    "Governance risk and assurance": (
-        "Review governance ownership, risk records, assurance evidence, and "
-        "board or audit reporting for any required changes."
-    ),
     "Supply-chain security": (
         "A compromised package, build process, or supplier can propagate access "
         "across many downstream organisations."
@@ -920,6 +819,18 @@ ACTIONS = {
     "Identity security": (
         "Review sign-ins and token use, enforce phishing-resistant MFA where "
         "possible, and revoke suspicious sessions or credentials."
+    ),
+    "Regulatory and compliance": (
+        "Identify affected entities and deadlines, map the change to current "
+        "controls and evidence, and assign legal or compliance ownership."
+    ),
+    "Standards and frameworks": (
+        "Compare the update with current control mappings, identify material "
+        "gaps, and plan adoption where it improves assurance or compliance."
+    ),
+    "Governance risk and assurance": (
+        "Review governance ownership, risk records, assurance evidence, and "
+        "board or audit reporting for any required changes."
     ),
     "Supply-chain security": (
         "Check dependency and supplier exposure, verify package provenance, "
@@ -1327,8 +1238,8 @@ def build_item(
         ransomware=ransomware,
         zero_day=zero_day,
         affected=affected,
-        action=ACTIONS[category],
-        why=WHY[category],
+        action=ACTIONS.get(category, ACTIONS["General security"]),
+        why=WHY.get(category, WHY["General security"]),
     )
 
 
@@ -1704,6 +1615,207 @@ def select_cvss_metric(cve_record: dict[str, Any]) -> tuple[
     return None, "Not available", ""
 
 
+NVD_RECENT_COVERAGE = (
+    {
+        "vendor": "Fortinet",
+        "section": "Fortinet",
+        "terms": (
+            "fortinet",
+            "fortios",
+            "fortigate",
+            "fortimanager",
+            "fortianalyzer",
+            "forticlient",
+            "fortiweb",
+            "fortimail",
+            "fortisandbox",
+            "fortinac",
+        ),
+    },
+    {
+        "vendor": "HPE",
+        "section": "HPE",
+        "terms": (
+            "hewlett packard enterprise",
+            "hpe ",
+            "hpe aruba",
+            "aruba networks",
+            "aruba central",
+            "arubaos",
+            "proliant",
+            "oneview",
+        ),
+    },
+    {
+        "vendor": "Microsoft / cloud identity",
+        "section": "Cloud and Identity",
+        "terms": (
+            "microsoft azure",
+            "azure ",
+            "microsoft entra",
+            "entra id",
+            "microsoft 365",
+            "office 365",
+            "active directory",
+            "amazon web services",
+            "aws ",
+            "okta",
+            "google cloud",
+            "kubernetes",
+        ),
+    },
+    {
+        "vendor": "Other priority vendors",
+        "section": "Other Vendor Advisories",
+        "terms": (
+            "cisco ",
+            "palo alto networks",
+            "pan-os",
+            "apple ",
+            "macos",
+            "ios ",
+            "crowdstrike",
+        ),
+    },
+)
+
+
+def english_nvd_description(cve_record: dict[str, Any]) -> str:
+    descriptions = cve_record.get("descriptions", [])
+
+    for description in descriptions:
+        if description.get("lang") == "en":
+            return clean_text(description.get("value"))
+
+    if descriptions:
+        return clean_text(descriptions[0].get("value"))
+
+    return ""
+
+
+def nvd_coverage_match(
+    description: str,
+) -> tuple[str, str] | None:
+    lowered = description.lower()
+
+    for coverage in NVD_RECENT_COVERAGE:
+        if any(term in lowered for term in coverage["terms"]):
+            return coverage["vendor"], coverage["section"]
+
+    return None
+
+
+def fetch_recent_nvd_coverage(
+    cutoff: datetime,
+) -> list[Item]:
+    end = datetime.now(timezone.utc)
+    api_key = os.getenv("NVD_API_KEY", "").strip()
+
+    headers = {
+        "User-Agent": USER_AGENT,
+        "Accept": "application/json",
+    }
+
+    if api_key:
+        headers["apiKey"] = api_key
+
+    response = requests.get(
+        NVD_CVE_API,
+        params={
+            "pubStartDate": cutoff.isoformat(timespec="milliseconds").replace(
+                "+00:00",
+                "Z",
+            ),
+            "pubEndDate": end.isoformat(timespec="milliseconds").replace(
+                "+00:00",
+                "Z",
+            ),
+            "resultsPerPage": 2000,
+        },
+        headers=headers,
+        timeout=90,
+    )
+    response.raise_for_status()
+
+    payload = response.json()
+    items: list[Item] = []
+
+    for vulnerability in payload.get("vulnerabilities", []):
+        cve_record = vulnerability.get("cve", {})
+        cve_id = clean_text(cve_record.get("id"))
+        description = english_nvd_description(cve_record)
+
+        if not cve_id or not description:
+            continue
+
+        coverage = nvd_coverage_match(description)
+        if coverage is None:
+            continue
+
+        vendor, section = coverage
+
+        published_raw = cve_record.get("published")
+
+        try:
+            published = date_parser.parse(str(published_raw))
+            if published.tzinfo is None:
+                published = published.replace(tzinfo=timezone.utc)
+            published = published.astimezone(timezone.utc)
+        except (ValueError, TypeError, OverflowError):
+            continue
+
+        cvss_score, cvss_severity, cvss_vector = select_cvss_metric(
+            cve_record
+        )
+
+        category = (
+            "Critical vulnerability"
+            if cvss_score is not None and cvss_score >= 8.0
+            else "Vendor advisory"
+        )
+
+        base_score = 38
+
+        if cvss_score == 10.0:
+            base_score += 50
+        elif cvss_score is not None and cvss_score >= 9.0:
+            base_score += 30
+        elif cvss_score is not None and cvss_score >= 8.0:
+            base_score += 18
+
+        items.append(
+            Item(
+                title=f"{cve_id} — {vendor}",
+                summary=description,
+                link=f"https://nvd.nist.gov/vuln/detail/{cve_id}",
+                published=published,
+                source="NVD Recent CVEs",
+                vendor=vendor,
+                section=section,
+                category=category,
+                score=base_score,
+                cves=[cve_id],
+                cvss_score=cvss_score,
+                cvss_severity=cvss_severity,
+                cvss_vector=cvss_vector,
+                affected=(
+                    f"Organisations using affected {vendor} products or "
+                    "services described in the NVD record."
+                ),
+                action=ACTIONS.get(
+                    category,
+                    ACTIONS["General security"],
+                ),
+                why=WHY.get(
+                    category,
+                    WHY["General security"],
+                ),
+            )
+        )
+
+    return items
+
+
 def enrich_nvd(
     items: list[Item],
     warnings: list[str],
@@ -1921,20 +2033,53 @@ def select_final_items(
         or item.kev
     ]
 
+    section_order = (
+        "Known Exploited Vulnerabilities",
+        "Microsoft",
+        "Fortinet",
+        "HPE",
+        "Other Vendor Advisories",
+        "Cloud and Identity",
+        "Threat Intelligence",
+        "Vulnerability Research",
+        "Norwegian Security Governance",
+        "Compliance",
+        "Standards",
+        "GRC",
+        "Nordic Impact",
+    )
+
+    section_floor: list[Item] = []
+
+    for section in section_order:
+        section_items = [
+            item for item in ordered if item.section == section
+        ]
+        section_floor.extend(section_items[:2])
+
     selected: list[Item] = []
     seen: set[str] = set()
 
-    for item in mandatory + ordered:
-        key = item.link.lower().rstrip("/")
+    for item in mandatory + section_floor + ordered:
+        key = (
+            "|".join(item.cves)
+            if item.cves
+            else item.link.lower().rstrip("/")
+        )
 
         if key in seen:
             continue
 
         if len(selected) >= max_items and item not in mandatory:
-            break
+            continue
 
         selected.append(item)
         seen.add(key)
+
+    selected.sort(
+        key=lambda item: (item.score, item.published),
+        reverse=True,
+    )
 
     return selected
 
@@ -2129,8 +2274,11 @@ def render_item_html(item: Item) -> str:
 
     return f"""
     <article style="
-        padding:4px 0 0 0;
+        border:1px solid #d0d7de;
+        border-radius:8px;
+        padding:18px;
         margin:0;
+        background:#ffffff;
     ">
       <h3 style="margin-top:0">{html.escape(item.title)}</h3>
 
@@ -2200,7 +2348,7 @@ def render_item_html(item: Item) -> str:
     <hr style="
         border:0;
         border-top:1px solid #b8bec5;
-        margin:24px 0;
+        margin:24px 0 28px 0;
         width:100%;
     ">
     """
@@ -2212,6 +2360,7 @@ def render_report(
     lookback_hours: int,
     upcoming_events: list[dict[str, str]],
     upcoming_days: int,
+    source_health: list[dict[str, Any]],
 ) -> tuple[str, str]:
     status = defcon_status(items)
     actions = immediate_actions(items)
@@ -2388,6 +2537,26 @@ def render_report(
             f"{upcoming_days} days from today."
         )
 
+
+    text.extend(
+        [
+            "",
+            "Source Coverage",
+            "---------------",
+        ]
+    )
+
+    for health in source_health:
+        if health["status"] == "OK":
+            text.append(
+                f"- {health['source']}: checked successfully; "
+                f"{health['items']} qualifying item(s) in the window."
+            )
+        else:
+            text.append(
+                f"- {health['source']}: FAILED — {health['detail']}"
+            )
+
     text.extend(
         [
             "",
@@ -2512,6 +2681,23 @@ def render_report(
             render_item_html(item) for item in section_items
         )
 
+
+    health_html = "".join(
+        (
+            "<tr>"
+            f"<td style='padding:4px 12px 4px 0'>"
+            f"{html.escape(str(health['source']))}</td>"
+            f"<td style='padding:4px 12px'>"
+            f"{'Checked' if health['status'] == 'OK' else 'Failed'}</td>"
+            f"<td style='padding:4px 12px'>"
+            f"{health['items'] if health['status'] == 'OK' else '—'}</td>"
+            f"<td style='padding:4px 0'>"
+            f"{html.escape(str(health.get('detail', '')))}</td>"
+            "</tr>"
+        )
+        for health in source_health
+    )
+
     warnings_html = ""
 
     if warnings:
@@ -2580,6 +2766,23 @@ def render_report(
 
       <h2>Upcoming Compliance, Standards and Governance</h2>
       <ul>{upcoming_html}</ul>
+
+      <h2>Source Coverage</h2>
+      <table style="
+          border-collapse:collapse;
+          width:100%;
+          margin-bottom:24px;
+      ">
+        <thead>
+          <tr style="text-align:left;border-bottom:1px solid #b8bec5">
+            <th style="padding:4px 12px 4px 0">Source</th>
+            <th style="padding:4px 12px">Status</th>
+            <th style="padding:4px 12px">Items</th>
+            <th style="padding:4px 0">Detail</th>
+          </tr>
+        </thead>
+        <tbody>{health_html}</tbody>
+      </table>
 
       <h2>CISO Watch List</h2>
       <ul>
@@ -2668,20 +2871,76 @@ def main() -> int:
 
         collected: list[Item] = []
         warnings: list[str] = []
+        source_health: list[dict[str, Any]] = []
 
         try:
             kev_items = fetch_kev(kev_days)
             collected.extend(kev_items)
+            source_health.append(
+                {
+                    "source": "CISA KEV",
+                    "status": "OK",
+                    "items": len(kev_items),
+                    "detail": "",
+                }
+            )
             print(f"CISA KEV: {len(kev_items)} item(s)")
         except Exception as error:
             warning = f"CISA KEV: {type(error).__name__}: {error}"
             warnings.append(warning)
+            source_health.append(
+                {
+                    "source": "CISA KEV",
+                    "status": "FAILED",
+                    "items": 0,
+                    "detail": f"{type(error).__name__}: {error}",
+                }
+            )
+            print(f"WARNING: {warning}", file=sys.stderr)
+
+        try:
+            nvd_recent = fetch_recent_nvd_coverage(cutoff)
+            collected.extend(nvd_recent)
+            source_health.append(
+                {
+                    "source": "NVD recent priority-vendor CVEs",
+                    "status": "OK",
+                    "items": len(nvd_recent),
+                    "detail": "",
+                }
+            )
+            print(
+                "NVD recent priority-vendor CVEs: "
+                f"{len(nvd_recent)} item(s)"
+            )
+        except Exception as error:
+            warning = (
+                "NVD recent priority-vendor CVEs: "
+                f"{type(error).__name__}: {error}"
+            )
+            warnings.append(warning)
+            source_health.append(
+                {
+                    "source": "NVD recent priority-vendor CVEs",
+                    "status": "FAILED",
+                    "items": 0,
+                    "detail": f"{type(error).__name__}: {error}",
+                }
+            )
             print(f"WARNING: {warning}", file=sys.stderr)
 
         for source in RSS_SOURCES:
             try:
                 items = fetch_rss(source, cutoff)
                 collected.extend(items)
+                source_health.append(
+                    {
+                        "source": source.name,
+                        "status": "OK",
+                        "items": len(items),
+                        "detail": "",
+                    }
+                )
                 print(f"{source.name}: {len(items)} item(s)")
             except Exception as error:
                 warning = (
@@ -2689,12 +2948,28 @@ def main() -> int:
                     f"{type(error).__name__}: {error}"
                 )
                 warnings.append(warning)
+                source_health.append(
+                    {
+                        "source": source.name,
+                        "status": "FAILED",
+                        "items": 0,
+                        "detail": f"{type(error).__name__}: {error}",
+                    }
+                )
                 print(f"WARNING: {warning}", file=sys.stderr)
 
         for source in HTML_SOURCES:
             try:
                 items = fetch_html(source, cutoff)
                 collected.extend(items)
+                source_health.append(
+                    {
+                        "source": source.name,
+                        "status": "OK",
+                        "items": len(items),
+                        "detail": "",
+                    }
+                )
                 print(f"{source.name}: {len(items)} item(s)")
             except Exception as error:
                 warning = (
@@ -2702,6 +2977,14 @@ def main() -> int:
                     f"{type(error).__name__}: {error}"
                 )
                 warnings.append(warning)
+                source_health.append(
+                    {
+                        "source": source.name,
+                        "status": "FAILED",
+                        "items": 0,
+                        "detail": f"{type(error).__name__}: {error}",
+                    }
+                )
                 print(f"WARNING: {warning}", file=sys.stderr)
 
         all_items = deduplicate(collected)
@@ -2735,6 +3018,7 @@ def main() -> int:
             lookback_hours,
             upcoming_events,
             upcoming_days,
+            source_health,
         )
 
         status = defcon_status(items)
