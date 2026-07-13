@@ -10,7 +10,7 @@ DEFCON 2 | High | Orange
 DEFCON 3 | Elevated | Amber
 DEFCON 4 | Guarded | Blue
 DEFCON 5 | Low | Green
-
+---
 ### Reporting window
 
 The workflow now uses Europe/Oslo local time:
