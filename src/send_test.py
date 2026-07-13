@@ -5,13 +5,15 @@ import sys
 from datetime import datetime, timezone
 from email.message import EmailMessage
 
-def required_environment_variable(name: str) -> str;
-  value = os.getenv(name)
 
-  if not value:
-    raise RuntimeError(f"Required environment variable is missing: {name}")
+def required_environment_variable(name: str) -> str:
+    value = os.getenv(name)
 
-  return value
+    if not value:
+        raise RuntimeError(f"Required environment variable is missing: {name}")
+
+    return value
+
 
 def main() -> int:
     gmail_username = required_environment_variable("GMAIL_USERNAME")
