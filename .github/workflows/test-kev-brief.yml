@@ -1,0 +1,59 @@
+name: Test CISA KEV briefing
+
+on:
+  workflow_dispatch:
+    inputs:
+      lookback_days:
+        description: Number of calendar days to include
+        required: true
+        default: "30"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  send-kev-brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Validate configuration
+        shell: bash
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: |
+          test -n "$GMAIL_USERNAME" || {
+            echo "::error::GMAIL_USERNAME is missing"
+            exit 1
+          }
+
+          test -n "$GMAIL_APP_PASSWORD" || {
+            echo "::error::GMAIL_APP_PASSWORD is missing"
+            exit 1
+          }
+
+          test -n "$EMAIL_TO" || {
+            echo "::error::EMAIL_TO is missing"
+            exit 1
+          }
+
+          echo "Required secrets are present."
+
+      - name: Download KEV catalogue and send briefing
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          KEV_LOOKBACK_DAYS: ${{ inputs.lookback_days }}
+        run: python src/send_kev_brief.py
