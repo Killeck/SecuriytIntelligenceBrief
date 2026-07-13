@@ -1,4 +1,4 @@
-# SecuriytIntelligenceBrief
+# SecuriytIntelligenceBrief V.3.0
 
 My own personal customised Security and Intelligence Brief. Designed to keep me in the "now" situation of security happenings and information
 
@@ -61,31 +61,26 @@ Ransomware usage
 
 --- 
 
-## Key Sources
-- Microsoft Security and threat intelligenced
-- AWS cloud and identity security
-- Palo Alto Unit 42
-- Fortinet
-- HPE
-- Cisco Talos
+## Key External services and data sources: 
+- Gmail SMTP
+- CISA Known Exploited Vulnerabilities catalogue
+- NIST National Vulnerability Database API
+- Microsoft Security Blog
+- AWS Security Blog
+- Palo Alto Networks Unit 42
 - Google Project Zero
-- Ransomware
-- Nation-state activity
-- Identity attacks
-- Cloud security
-- Supply-chain incidents
-- Malware and broader threat intelligence
-
-
-## Email Sctions
-
-1. Executive Summary
-2. Immediate Actions
-3. Knonw Exploited Vulns.
-4. Vendor advisories
-5. Cloud and Identity
-6. Threat Intelligence
-7. Vulnerability research
-8. Nordic Impact
-9. CISO watch list
-10. Source Warnings
+- CrowdStrike
+- Cisco Talos
+- Fortinet PSIRT
+- FortiGuard Labs
+- HPE Security Bulletin Library
+- HPE Networking Security Advisories
+- Apple Security Releases
+- Okta Security
+- ENISA
+- NIST CSRC
+- PCI Security Standards Council
+- ISACA
+- Norwegian National Security Authority (NSM)
+- Norwegian Government information services
+- International Organization for Standardization (ISO)
