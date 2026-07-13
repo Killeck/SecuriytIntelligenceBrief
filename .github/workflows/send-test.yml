@@ -1,1 +1,29 @@
-test
+name: Test Gmail Delivery
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  send-test-email:
+    name: Send test email
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Check out repository
+        uses: action/checkout@v4
+
+      - name: Set up Python
+        uses: action/setup-python@v5
+        with:
+            python-version: "3.12"
+
+      - name: Send test email
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+        run: python src/send_test.py
