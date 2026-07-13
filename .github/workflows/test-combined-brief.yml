@@ -1,4 +1,4 @@
-name: Test DEFCON daily security briefing
+name: Test hardened daily security briefing
 
 on:
   workflow_dispatch:
