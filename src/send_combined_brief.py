@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import calendar
 import html
+import math
 import json
 import os
 import re
