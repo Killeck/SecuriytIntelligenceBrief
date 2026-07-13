@@ -2,8 +2,8 @@ from __future__ import annotations
 
 import calendar
 import html
-import math
 import json
+import math
 import os
 import re
 import smtplib
@@ -2448,10 +2448,7 @@ def render_report(
                 f"— {item.source}"
             )
     else:
-        text.append(
-            "No explicit zero-day or CVSS 10.0 item was identified "
-            "during the reporting window."
-        )
+        text.append("None identified in the reporting window.")
 
     text.extend(["", "Major compliance, standards and governance changes"])
 
@@ -2461,10 +2458,7 @@ def render_report(
                 f"- [{item.section}] {item.title} — {item.source}"
             )
     else:
-        text.append(
-            "No material compliance, standards or governance change "
-            "was collected during the reporting window."
-        )
+        text.append("No material change identified in the reporting window.")
 
     text.extend(
         [
@@ -2480,10 +2474,7 @@ def render_report(
                 f"({event.get('topic') or event.get('source')})"
             )
     else:
-        text.append(
-            "No configured or source-detected effective date falls "
-            f"within the next {upcoming_days} days."
-        )
+        text.append(f"No tracked milestone in the next {upcoming_days} days.")
 
     text.extend(
         [
@@ -2500,14 +2491,10 @@ def render_report(
     for section in section_order:
         section_items = grouped.get(section, [])
 
-        text.extend(["", section, "=" * len(section)])
-
         if not section_items:
-            text.append(
-                "No qualifying updates were collected for this section "
-                "during the reporting window."
-            )
             continue
+
+        text.extend(["", section, "=" * len(section)])
 
         for number, item in enumerate(section_items, start=1):
             text.extend(render_item_text(item, number))
@@ -2539,24 +2526,46 @@ def render_report(
         )
 
 
-    text.extend(
-        [
-            "",
-            "Source Coverage",
-            "---------------",
-        ]
+    active_sources = [
+        health
+        for health in source_health
+        if health["status"] == "OK" and health["items"] > 0
+    ]
+    failed_sources = [
+        health
+        for health in source_health
+        if health["status"] != "OK"
+    ]
+    quiet_source_count = sum(
+        1
+        for health in source_health
+        if health["status"] == "OK" and health["items"] == 0
     )
 
-    for health in source_health:
-        if health["status"] == "OK":
-            text.append(
-                f"- {health['source']}: checked successfully; "
-                f"{health['items']} qualifying item(s) in the window."
-            )
-        else:
-            text.append(
-                f"- {health['source']}: FAILED — {health['detail']}"
-            )
+    if active_sources or failed_sources or quiet_source_count:
+        text.extend(
+            [
+                "",
+                "Source Coverage",
+                "---------------",
+            ]
+        )
+
+    for health in active_sources:
+        text.append(
+            f"- {health['source']}: {health['items']} qualifying item(s)."
+        )
+
+    if quiet_source_count:
+        text.append(
+            f"- {quiet_source_count} additional source(s) checked with "
+            "no qualifying updates."
+        )
+
+    for health in failed_sources:
+        text.append(
+            f"- {health['source']}: FAILED — {health['detail']}"
+        )
 
     text.extend(
         [
@@ -2615,10 +2624,7 @@ def render_report(
             + "</em></li>"
             for item in critical_special
         )
-        or (
-            "<li>No explicit zero-day or CVSS 10.0 item was identified "
-            "during the reporting window.</li>"
-        )
+        or "<li>None identified in the reporting window.</li>"
     )
 
     governance_html = (
@@ -2628,10 +2634,7 @@ def render_report(
             f"<em>— {html.escape(item.source)}</em></li>"
             for item in major_governance
         )
-        or (
-            "<li>No material compliance, standards or governance change "
-            "was collected during the reporting window.</li>"
-        )
+        or "<li>No material change identified in the reporting window.</li>"
     )
 
     upcoming_html = (
@@ -2653,8 +2656,7 @@ def render_report(
             for event in upcoming_events
         )
         or (
-            "<li>No configured or source-detected effective date falls "
-            f"within the next {upcoming_days} days.</li>"
+            f"<li>No tracked milestone in the next {upcoming_days} days.</li>"
         )
     )
 
@@ -2667,36 +2669,71 @@ def render_report(
     for section in section_order:
         section_items = grouped.get(section, [])
 
+        if not section_items:
+            continue
+
         sections_html.append(
             f"<h2 style='margin-top:32px'>{html.escape(section)}</h2>"
         )
-
-        if not section_items:
-            sections_html.append(
-                "<p><em>No qualifying updates were collected for this "
-                "section during the reporting window.</em></p>"
-            )
-            continue
 
         sections_html.extend(
             render_item_html(item) for item in section_items
         )
 
 
+    active_health = [
+        health
+        for health in source_health
+        if health["status"] == "OK" and health["items"] > 0
+    ]
+    failed_health = [
+        health
+        for health in source_health
+        if health["status"] != "OK"
+    ]
+    quiet_health_count = sum(
+        1
+        for health in source_health
+        if health["status"] == "OK" and health["items"] == 0
+    )
+
+    health_rows = list(active_health)
+
     health_html = "".join(
         (
             "<tr>"
             f"<td style='padding:4px 12px 4px 0'>"
             f"{html.escape(str(health['source']))}</td>"
-            f"<td style='padding:4px 12px'>"
-            f"{'Checked' if health['status'] == 'OK' else 'Failed'}</td>"
-            f"<td style='padding:4px 12px'>"
-            f"{health['items'] if health['status'] == 'OK' else '—'}</td>"
+            f"<td style='padding:4px 12px'>Checked</td>"
+            f"<td style='padding:4px 12px'>{health['items']}</td>"
+            "<td style='padding:4px 0'></td>"
+            "</tr>"
+        )
+        for health in health_rows
+    )
+
+    if quiet_health_count:
+        health_html += (
+            "<tr>"
+            "<td style='padding:4px 12px 4px 0' colspan='4'>"
+            f"<em>{quiet_health_count} additional source(s) checked with "
+            "no qualifying updates.</em>"
+            "</td>"
+            "</tr>"
+        )
+
+    health_html += "".join(
+        (
+            "<tr>"
+            f"<td style='padding:4px 12px 4px 0'>"
+            f"{html.escape(str(health['source']))}</td>"
+            "<td style='padding:4px 12px'>Failed</td>"
+            "<td style='padding:4px 12px'>—</td>"
             f"<td style='padding:4px 0'>"
             f"{html.escape(str(health.get('detail', '')))}</td>"
             "</tr>"
         )
-        for health in source_health
+        for health in failed_health
     )
 
     warnings_html = ""
