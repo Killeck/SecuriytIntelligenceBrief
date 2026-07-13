@@ -1,9 +1,27 @@
 {
-  "enabled": true,
-  "date": "2026-08-02",
-  "title": "Confirmed compliance milestone",
-  "topic": "Relevant regulation or standard",
-  "source": "Official authority",
-  "source_url": "https://official-primary-source.example",
-  "notes": "Practical effect and affected organisations."
+  "monitored_topics": [
+    "NSM updates",
+    "Sikkerhetsloven",
+    "NIS2",
+    "ISO/IEC 27001",
+    "ISO 50001",
+    "ISO 9001",
+    "ISO 14001",
+    "ISO/IEC 33000 series"
+  ],
+  "events": [],
+  "_instructions": [
+    "Add confirmed future effective dates here when an obligation or standard change has been announced before the normal 36/72-hour reporting window.",
+    "Only enabled events dated today through the configured 14-day horizon are included in the briefing.",
+    "Use primary-source URLs and review dates when official timelines change."
+  ],
+  "_example_disabled_event": {
+    "enabled": false,
+    "date": "2026-12-31",
+    "title": "Example future compliance milestone",
+    "topic": "NIS2",
+    "source": "Official authority",
+    "source_url": "https://example.invalid/official-source",
+    "notes": "Replace this disabled example with a verified event."
+  }
 }
