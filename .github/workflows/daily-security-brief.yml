@@ -1,4 +1,4 @@
-name: Daily Security Brief v4.1
+name: Daily Security Brief v4.2
 
 on:
   schedule:
@@ -37,7 +37,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: daily-security-brief-v4-1
+  group: daily-security-brief-v4-2
   cancel-in-progress: false
 
 jobs:
@@ -61,6 +61,11 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --requirement requirements.txt
 
+      - name: Run offline regression tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+
       - name: Generate and send daily security brief
         env:
           GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
@@ -80,5 +85,6 @@ jobs:
           EXPOSURE_MAX_ITEMS: ${{ inputs.exposure_max || '20' }}
           EXEC_NEWS_MIN_SCORE: "24"
           UPCOMING_GOVERNANCE_DAYS: "14"
+          SOURCE_WORKERS: "8"
 
         run: python src/send_security_advisory.py
