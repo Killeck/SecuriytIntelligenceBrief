@@ -16,7 +16,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 from email.message import EmailMessage
 from typing import Any, Iterable
-from urllib.parse import urljoin
+from urllib.parse import quote, urljoin
 from urllib.request import Request, urlopen
 
 import feedparser
@@ -25,11 +25,11 @@ from bs4 import BeautifulSoup, Tag
 from dateutil import parser as date_parser
 
 
-BRIEF_NAME = "Daily CISO Security Briefing"
-BRIEF_VERSION = "4.0"
+BRIEF_NAME = "Daily Security Brief"
+BRIEF_VERSION = "4.1"
 
 USER_AGENT = (
-    f"daily-ciso-security-brief/{BRIEF_VERSION} "
+    f"daily-security-brief/{BRIEF_VERSION} "
     "(GitHub Actions; security news aggregation)"
 )
 
@@ -43,6 +43,12 @@ CISA_KEV_CATALOGUE = (
 )
 
 NVD_CVE_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
+HIBP_BREACHES_API = "https://haveibeenpwned.com/api/v3/breaches"
+HIBP_BREACHED_DOMAIN_API = (
+    "https://haveibeenpwned.com/api/v3/breachedDomain"
+)
+HIBP_PWNED_WEBSITES = "https://haveibeenpwned.com/PwnedWebsites"
+HIBP_DASHBOARD = "https://haveibeenpwned.com/Dashboard"
 OSLO_TIMEZONE = ZoneInfo("Europe/Oslo")
 UPCOMING_GOVERNANCE_FILE = Path(
     os.getenv(
@@ -179,6 +185,23 @@ class NewsLink:
     score: int
     tags: list[str] = field(default_factory=list)
     summary: str = ""
+
+
+@dataclass
+class ExposureSignal:
+    title: str
+    signal_type: str
+    source: str
+    link: str
+    observed: datetime
+    confidence: str
+    severity: str
+    score: int
+    summary: str
+    affected: str
+    action: str
+    organisation: str = ""
+    tags: list[str] = field(default_factory=list)
 
 
 @dataclass
@@ -364,6 +387,26 @@ EXECUTIVE_NEWS_SOURCE_LIMITS = {
 
 
 RELEVANCE_RULES = (
+    (
+        "Dark Web/Exposure",
+        (
+            "dark web",
+            "darknet",
+            "ransomware",
+            "extortion",
+            "stealer log",
+            "infostealer",
+            "credential dump",
+            "data breach",
+            "data leak",
+            "initial access broker",
+            "cybercrime forum",
+            "phishing-as-a-service",
+            "brand impersonation",
+            "stolen data",
+        ),
+        44,
+    ),
     (
         "Azure/Microsoft",
         (
@@ -611,6 +654,172 @@ EXECUTIVE_NEWS_EXCLUDE = (
     "top 10 tools",
     "penetration testing framework",
 )
+
+EXPOSURE_SIGNAL_RULES = (
+    (
+        "Ransomware and Extortion",
+        (
+            "ransomware",
+            "extortion",
+            "double extortion",
+            "data extortion",
+            "leak site",
+            "victim claim",
+            "claimed responsibility",
+            "ransom demand",
+            "encryptor",
+        ),
+        "High",
+        42,
+        (
+            "Validate whether the organisation, supplier or sector is exposed; "
+            "review remote access, identity, EDR, backup and incident-response "
+            "readiness."
+        ),
+    ),
+    (
+        "Credential Exposure and Stealer Logs",
+        (
+            "stealer log",
+            "infostealer",
+            "information stealer",
+            "credential dump",
+            "stolen credentials",
+            "password dump",
+            "session cookie",
+            "session token",
+            "access token",
+            "browser credentials",
+            "malware log",
+            "combo list",
+        ),
+        "High",
+        40,
+        (
+            "Identify affected identities, reset passwords, revoke active "
+            "sessions and tokens, review MFA methods and investigate endpoint "
+            "or browser compromise."
+        ),
+    ),
+    (
+        "Data Breaches and Leaks",
+        (
+            "data breach",
+            "database leak",
+            "data leak",
+            "stolen data",
+            "records exposed",
+            "customer data",
+            "employee data",
+            "source code leak",
+            "dumped online",
+            "offered for sale",
+            "data theft",
+        ),
+        "Elevated",
+        34,
+        (
+            "Confirm scope and authenticity, identify affected data subjects, "
+            "activate legal and privacy assessment, and prepare notification "
+            "and credential-protection actions."
+        ),
+    ),
+    (
+        "Initial Access and Cybercrime Markets",
+        (
+            "initial access broker",
+            "selling access",
+            "network access for sale",
+            "access broker",
+            "cybercrime forum",
+            "dark web marketplace",
+            "underground forum",
+            "malware-as-a-service",
+            "ransomware-as-a-service",
+            "phishing-as-a-service",
+            "bulletproof hosting",
+            "crypter",
+            "loader service",
+        ),
+        "Elevated",
+        32,
+        (
+            "Review exposed services, privileged remote access, stale accounts "
+            "and third-party connectivity; hunt for access-establishment "
+            "activity before payload deployment."
+        ),
+    ),
+    (
+        "Brand, Impersonation and Phishing",
+        (
+            "impersonation",
+            "spoofing",
+            "spoofed",
+            "typosquat",
+            "lookalike domain",
+            "phishing domain",
+            "fake login",
+            "brand abuse",
+            "fraudulent website",
+            "adversary-in-the-middle",
+            "aitm",
+        ),
+        "Elevated",
+        30,
+        (
+            "Validate the infrastructure, submit takedown requests where "
+            "appropriate, notify affected users and strengthen email, DNS and "
+            "identity protections."
+        ),
+    ),
+    (
+        "Dark Web and Criminal Ecosystem",
+        (
+            "dark web",
+            "darknet",
+            "cybercrime ecosystem",
+            "criminal marketplace",
+            "forum administrator",
+            "marketplace operator",
+            "law enforcement operation",
+            "takedown",
+            "sanctioned",
+            "sanctions",
+            "cryptomixer",
+            "money laundering",
+        ),
+        "Guarded",
+        24,
+        (
+            "Assess whether the disrupted infrastructure, actors or services "
+            "overlap with current investigations, IOCs, suppliers or customer "
+            "exposure."
+        ),
+    ),
+)
+
+EXPOSURE_SECTION_ORDER = (
+    "Ransomware and Extortion",
+    "Credential Exposure and Stealer Logs",
+    "Data Breaches and Leaks",
+    "Initial Access and Cybercrime Markets",
+    "Brand, Impersonation and Phishing",
+    "Dark Web and Criminal Ecosystem",
+)
+
+SENSITIVE_DATA_CLASSES = {
+    "Passwords",
+    "Password hints",
+    "Authentication tokens",
+    "Session cookies",
+    "Credit cards",
+    "Bank account numbers",
+    "Government issued IDs",
+    "National identification numbers",
+    "Social security numbers",
+    "Private messages",
+    "Source code",
+}
 
 SECTOR_IMPACT_RULES = (
     (
@@ -1360,6 +1569,51 @@ HTML_SOURCES = (
             "/resources/",
         ),
         max_candidates=40,
+    ),
+    Source(
+        name="FBI Cyber News",
+        vendor="FBI",
+        url="https://www.fbi.gov/investigate/cyber/news",
+        source_type="html",
+        base_score=30,
+        section="Dark Web and Criminal Ecosystem",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+            "main a[href*='/news/press-releases/']",
+            "main a[href*='/news/stories/']",
+        ),
+        include_patterns=("fbi.gov/",),
+        exclude_patterns=(
+            "/wanted/",
+            "/contact-us/",
+            "/services/",
+            "/history/",
+        ),
+        topic_keywords=(
+            "ransomware",
+            "cybercrime",
+            "cybercriminal",
+            "dark web",
+            "stolen access",
+            "selling access",
+            "initial access",
+            "infostealer",
+            "stealer",
+            "phishing",
+            "malware",
+            "botnet",
+            "extortion",
+            "data breach",
+            "hacking group",
+            "marketplace",
+            "stolen credentials",
+            "access token",
+            "sanction",
+            "takedown",
+        ),
+        max_candidates=60,
     ),
     Source(
         name="NSM Security Warnings",
@@ -2851,6 +3105,552 @@ def build_regional_links(
     return selected
 
 
+def csv_setting(name: str) -> tuple[str, ...]:
+    raw = os.getenv(name, "")
+    values: list[str] = []
+    seen: set[str] = set()
+
+    for part in raw.split(","):
+        value = clean_text(part)
+
+        if not value:
+            continue
+
+        lowered = value.lower()
+
+        if lowered in seen:
+            continue
+
+        values.append(value)
+        seen.add(lowered)
+
+    return tuple(values)
+
+
+def ensure_utc(value: datetime) -> datetime:
+    if value.tzinfo is None:
+        return value.replace(tzinfo=timezone.utc)
+
+    return value.astimezone(timezone.utc)
+
+
+def exposure_severity_rank(severity: str) -> int:
+    return {
+        "Critical": 4,
+        "High": 3,
+        "Elevated": 2,
+        "Guarded": 1,
+        "Low": 0,
+    }.get(severity, 1)
+
+
+def clean_html_text(value: str) -> str:
+    if not value:
+        return ""
+
+    return clean_text(
+        BeautifulSoup(value, "html.parser").get_text(" ", strip=True)
+    )
+
+
+def fetch_hibp_breaches(cutoff: datetime) -> list[ExposureSignal]:
+    response = requests.get(
+        HIBP_BREACHES_API,
+        timeout=45,
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": "application/json",
+        },
+    )
+    response.raise_for_status()
+
+    payload = response.json()
+
+    if not isinstance(payload, list):
+        raise RuntimeError("HIBP breach response was not a list")
+
+    signals: list[ExposureSignal] = []
+
+    for entry in payload:
+        if not isinstance(entry, dict):
+            continue
+
+        if entry.get("IsSpamList") or entry.get("IsRetired"):
+            continue
+
+        raw_added = clean_text(entry.get("AddedDate"))
+
+        if not raw_added:
+            continue
+
+        try:
+            observed = ensure_utc(date_parser.parse(raw_added))
+        except (ValueError, TypeError, OverflowError):
+            continue
+
+        if observed < cutoff:
+            continue
+
+        name = clean_text(entry.get("Name"))
+        title = clean_text(entry.get("Title")) or name or "Unknown breach"
+        domain = clean_text(entry.get("Domain")) or "Domain not stated"
+        description = clean_html_text(
+            str(entry.get("Description") or "")
+        )
+        data_classes = [
+            clean_text(value)
+            for value in entry.get("DataClasses", [])
+            if clean_text(value)
+        ]
+        class_set = set(data_classes)
+        pwn_count = entry.get("PwnCount")
+
+        try:
+            affected_count = int(pwn_count or 0)
+        except (TypeError, ValueError):
+            affected_count = 0
+
+        is_stealer = bool(entry.get("IsStealerLog"))
+        is_malware = bool(entry.get("IsMalware"))
+        sensitive = bool(class_set & SENSITIVE_DATA_CLASSES)
+
+        if is_stealer or is_malware or sensitive:
+            signal_type = "Credential Exposure and Stealer Logs"
+            severity = "High"
+            score = 82
+            action = (
+                "Identify potentially affected identities, force password "
+                "resets where applicable, revoke sessions and tokens, and "
+                "investigate endpoint or browser compromise."
+            )
+        else:
+            signal_type = "Data Breaches and Leaks"
+            severity = "Elevated" if affected_count >= 100000 else "Guarded"
+            score = 68 if severity == "Elevated" else 54
+            action = (
+                "Assess organisational and supplier exposure, identify "
+                "affected identities or data classes, and activate privacy, "
+                "legal and notification workflows where applicable."
+            )
+
+        confidence = (
+            "Verified"
+            if bool(entry.get("IsVerified"))
+            else "Unverified dataset"
+        )
+
+        count_text = (
+            f"{affected_count:,} accounts"
+            if affected_count
+            else "Account count not stated"
+        )
+        classes_text = (
+            ", ".join(data_classes)
+            if data_classes
+            else "Data classes not stated"
+        )
+        breach_date = clean_text(entry.get("BreachDate"))
+
+        summary_parts = [
+            description or f"HIBP added breach metadata for {title}.",
+            f"Breach date: {breach_date or 'not stated'}.",
+        ]
+
+        link = HIBP_PWNED_WEBSITES
+        if name:
+            link += f"#{quote(name, safe='')}"
+
+        signals.append(
+            ExposureSignal(
+                title=f"New breach exposure: {title}",
+                signal_type=signal_type,
+                source="Have I Been Pwned",
+                link=link,
+                observed=observed,
+                confidence=confidence,
+                severity=severity,
+                score=score,
+                summary=" ".join(summary_parts),
+                affected=(
+                    f"{domain}; {count_text}; exposed data: {classes_text}."
+                ),
+                action=action,
+                organisation=domain,
+                tags=[
+                    "HIBP",
+                    "Stealer log" if is_stealer else "",
+                    "Malware-sourced" if is_malware else "",
+                ],
+            )
+        )
+
+    return signals
+
+
+def fetch_hibp_domain_exposure(
+    domains: tuple[str, ...],
+    api_key: str,
+) -> list[ExposureSignal]:
+    if not domains or not api_key:
+        return []
+
+    signals: list[ExposureSignal] = []
+
+    for domain in domains:
+        url = (
+            f"{HIBP_BREACHED_DOMAIN_API}/"
+            f"{quote(domain, safe='')}"
+        )
+        response = requests.get(
+            url,
+            timeout=45,
+            headers={
+                "User-Agent": USER_AGENT,
+                "Accept": "application/json",
+                "hibp-api-key": api_key,
+            },
+        )
+
+        if response.status_code == 404:
+            time.sleep(1.7)
+            continue
+
+        response.raise_for_status()
+        payload = response.json()
+
+        if not isinstance(payload, dict):
+            raise RuntimeError(
+                f"HIBP domain response for {domain} was not an object"
+            )
+
+        breach_names = sorted(
+            {
+                clean_text(breach)
+                for breaches in payload.values()
+                if isinstance(breaches, list)
+                for breach in breaches
+                if clean_text(breach)
+            }
+        )
+        affected_aliases = len(payload)
+
+        if affected_aliases == 0:
+            time.sleep(1.7)
+            continue
+
+        displayed_breaches = ", ".join(breach_names[:12])
+        if len(breach_names) > 12:
+            displayed_breaches += (
+                f", plus {len(breach_names) - 12} additional breach(es)"
+            )
+
+        signals.append(
+            ExposureSignal(
+                title=f"Verified-domain breach exposure: {domain}",
+                signal_type="Credential Exposure and Stealer Logs",
+                source="Have I Been Pwned Domain Search",
+                link=HIBP_DASHBOARD,
+                observed=datetime.now(timezone.utc),
+                confidence="Domain ownership verified",
+                severity="High",
+                score=95,
+                summary=(
+                    f"{affected_aliases} email alias(es) on the verified "
+                    f"domain were associated with {len(breach_names)} "
+                    "breach dataset(s). Individual aliases are deliberately "
+                    "not included in this report."
+                ),
+                affected=(
+                    f"Verified domain {domain}; breach datasets: "
+                    f"{displayed_breaches or 'not stated'}."
+                ),
+                action=(
+                    "Review affected identities in the HIBP dashboard, "
+                    "validate current employment and account status, reset "
+                    "reused credentials, revoke sessions, strengthen MFA, and "
+                    "increase phishing and account-takeover monitoring."
+                ),
+                organisation=domain,
+                tags=["HIBP", "Verified domain", "Credential exposure"],
+            )
+        )
+        time.sleep(1.7)
+
+    return signals
+
+
+def matched_monitored_references(
+    combined: str,
+    monitored_brands: tuple[str, ...],
+    monitored_domains: tuple[str, ...],
+) -> list[str]:
+    lowered = combined.lower()
+    matches: list[str] = []
+
+    for value in monitored_brands + monitored_domains:
+        if value.lower() in lowered:
+            matches.append(value)
+
+    return matches
+
+
+def build_open_source_exposure_signals(
+    items: list[Item],
+    news_links: list[NewsLink],
+    monitored_brands: tuple[str, ...],
+    monitored_domains: tuple[str, ...],
+    max_items: int = 18,
+) -> list[ExposureSignal]:
+    records = [
+        (
+            item.title,
+            item.summary,
+            item.source,
+            item.link,
+            item.published,
+            item.score,
+            "Primary or research source",
+        )
+        for item in items
+    ]
+    records.extend(
+        (
+            link.title,
+            link.summary,
+            link.source,
+            link.link,
+            link.published,
+            link.score,
+            "Secondary reporting",
+        )
+        for link in news_links
+    )
+
+    signals: list[ExposureSignal] = []
+
+    for (
+        title,
+        summary,
+        source,
+        link,
+        observed,
+        base_score,
+        confidence,
+    ) in records:
+        combined = f" {title} {summary} "
+        lowered = combined.lower()
+        matches = matched_monitored_references(
+            combined,
+            monitored_brands,
+            monitored_domains,
+        )
+
+        matched_rule = None
+
+        for (
+            signal_type,
+            keywords,
+            default_severity,
+            weight,
+            action,
+        ) in EXPOSURE_SIGNAL_RULES:
+            keyword_hits = sum(
+                1 for keyword in keywords if keyword in lowered
+            )
+
+            if keyword_hits == 0:
+                continue
+
+            candidate_score = base_score + weight + min(
+                keyword_hits * 4,
+                16,
+            )
+
+            if matches:
+                candidate_score += 35
+
+            if (
+                matched_rule is None
+                or candidate_score > matched_rule[0]
+            ):
+                matched_rule = (
+                    candidate_score,
+                    signal_type,
+                    default_severity,
+                    action,
+                )
+
+        if matched_rule is None:
+            continue
+
+        score, signal_type, severity, action = matched_rule
+
+        if score >= 115:
+            severity = "Critical"
+        elif score >= 90 and severity in {"Guarded", "Elevated"}:
+            severity = "High"
+
+        affected = (
+            "Potential monitored reference: "
+            + ", ".join(matches)
+            + "."
+            if matches
+            else (
+                "Organisations, suppliers and sectors matching the reported "
+                "victim profile, technology or attack method."
+            )
+        )
+
+        signals.append(
+            ExposureSignal(
+                title=title,
+                signal_type=signal_type,
+                source=source,
+                link=link,
+                observed=ensure_utc(observed),
+                confidence=confidence,
+                severity=severity,
+                score=score,
+                summary=truncate(summary or title, 700),
+                affected=affected,
+                action=action,
+                organisation=", ".join(matches),
+                tags=[signal_type] + matches,
+            )
+        )
+
+    return signals[:max_items * 3]
+
+
+def deduplicate_exposure_signals(
+    signals: list[ExposureSignal],
+    max_items: int,
+) -> list[ExposureSignal]:
+    ordered = sorted(
+        signals,
+        key=lambda signal: (
+            exposure_severity_rank(signal.severity),
+            signal.score,
+            signal.observed,
+        ),
+        reverse=True,
+    )
+
+    selected: list[ExposureSignal] = []
+    seen_links: set[str] = set()
+
+    for signal in ordered:
+        if signal.link and signal.link in seen_links:
+            continue
+
+        if any(
+            news_similarity(signal.title, existing.title) >= 0.68
+            for existing in selected
+        ):
+            continue
+
+        selected.append(signal)
+
+        if signal.link:
+            seen_links.add(signal.link)
+
+        if len(selected) >= max_items:
+            break
+
+    return selected
+
+
+def group_exposure_signals(
+    signals: list[ExposureSignal],
+) -> dict[str, list[ExposureSignal]]:
+    grouped = {
+        section: []
+        for section in EXPOSURE_SECTION_ORDER
+    }
+
+    for signal in signals:
+        grouped.setdefault(signal.signal_type, []).append(signal)
+
+    return grouped
+
+
+def advisory_status(
+    items: list[Item],
+    exposure_signals: list[ExposureSignal],
+) -> dict[str, Any]:
+    base = defcon_status(items)
+    level = int(base["level"])
+
+    if any(
+        signal.severity == "Critical"
+        for signal in exposure_signals
+    ):
+        level = min(level, 1)
+    elif any(
+        signal.severity == "High"
+        for signal in exposure_signals
+    ):
+        level = min(level, 2)
+    elif any(
+        signal.severity == "Elevated"
+        for signal in exposure_signals
+    ):
+        level = min(level, 3)
+
+    definition = DEFCON_LEVELS[level]
+
+    return {
+        "level": level,
+        "label": definition["label"],
+        "colour": definition["colour"],
+        "text_colour": definition["text_colour"],
+        "display": definition["label"],
+    }
+
+
+def advisory_actions(
+    items: list[Item],
+    signals: list[ExposureSignal],
+) -> list[str]:
+    actions: list[str] = []
+
+    signal_types = {signal.signal_type for signal in signals}
+
+    if "Credential Exposure and Stealer Logs" in signal_types:
+        actions.append(
+            "Review exposed identities, force targeted credential resets, "
+            "revoke active sessions and tokens, and investigate source "
+            "endpoints for infostealer activity."
+        )
+
+    if "Ransomware and Extortion" in signal_types:
+        actions.append(
+            "Validate reported victim and supplier claims, review remote "
+            "access and privileged identity exposure, and confirm recovery "
+            "and extortion-response readiness."
+        )
+
+    if "Brand, Impersonation and Phishing" in signal_types:
+        actions.append(
+            "Validate suspected impersonation infrastructure, start takedown "
+            "and blocking workflows, and notify users or customers where "
+            "fraudulent interaction is plausible."
+        )
+
+    if "Data Breaches and Leaks" in signal_types:
+        actions.append(
+            "Assess breach relevance to monitored organisations and suppliers, "
+            "identify affected data classes, and trigger privacy, legal and "
+            "customer-notification assessment where required."
+        )
+
+    for action in immediate_actions(items):
+        if action not in actions:
+            actions.append(action)
+
+    return actions[:5]
+
+
 def fetch_kev(lookback_days: int) -> list[Item]:
     request = Request(
         CISA_KEV_FEED,
@@ -3412,6 +4212,7 @@ def select_final_items(
 
     section_order = (
         "Known Exploited Vulnerabilities",
+        "Dark Web and Criminal Ecosystem",
         "Microsoft, Azure and Identity",
         "Fortinet",
         "HPE and Aruba",
@@ -3733,6 +4534,95 @@ def render_item_html(item: Item) -> str:
     """
 
 
+def render_exposure_text(
+    signal: ExposureSignal,
+    number: int,
+) -> list[str]:
+    return [
+        "",
+        f"{number}. [{signal.severity}] {signal.title}",
+        f"   Signal type: {signal.signal_type}",
+        f"   Source: {signal.source}",
+        (
+            "   Observed: "
+            f"{signal.observed.strftime('%Y-%m-%d %H:%M UTC')}"
+        ),
+        f"   Confidence: {signal.confidence}",
+        f"   Summary: {signal.summary}",
+        f"   Potentially affected: {signal.affected}",
+        f"   Advisory action: {signal.action}",
+        f"   Link: {signal.link}",
+    ]
+
+
+def render_exposure_html(signal: ExposureSignal) -> str:
+    return f"""
+    <article style="
+        border:1px solid #7d4e9e;
+        border-radius:8px;
+        padding:18px;
+        margin:0;
+        background:#ffffff;
+    ">
+      <h3 style="margin-top:0">{html.escape(signal.title)}</h3>
+
+      <table style="border-collapse:collapse">
+        <tr>
+          <td style="padding:2px 16px 2px 0">
+            <strong>Signal type</strong>
+          </td>
+          <td>{html.escape(signal.signal_type)}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 16px 2px 0">
+            <strong>Source</strong>
+          </td>
+          <td>{html.escape(signal.source)}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 16px 2px 0">
+            <strong>Observed</strong>
+          </td>
+          <td>{signal.observed.strftime("%Y-%m-%d %H:%M UTC")}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 16px 2px 0">
+            <strong>Confidence</strong>
+          </td>
+          <td>{html.escape(signal.confidence)}</td>
+        </tr>
+        <tr>
+          <td style="padding:2px 16px 2px 0">
+            <strong>Severity</strong>
+          </td>
+          <td>{html.escape(signal.severity)}</td>
+        </tr>
+      </table>
+
+      <h4>Exposure summary</h4>
+      <p>{html.escape(truncate(signal.summary, 850))}</p>
+
+      <h4>Potentially affected</h4>
+      <p>{html.escape(signal.affected)}</p>
+
+      <h4>Security advisory action</h4>
+      <p>{html.escape(signal.action)}</p>
+
+      <p>
+        <a href="{html.escape(signal.link, quote=True)}">
+          Open supporting source
+        </a>
+      </p>
+    </article>
+    <hr style="
+        border:0;
+        border-top:1px solid #b8bec5;
+        margin:24px 0 28px 0;
+        width:100%;
+    ">
+    """
+
+
 def render_report(
     items: list[Item],
     warnings: list[str],
@@ -3744,16 +4634,22 @@ def render_report(
     sector_impacts: list[SectorImpact],
     detection_opportunities: list[DetectionOpportunity],
     regional_links: list[NewsLink],
+    exposure_signals: list[ExposureSignal],
+    monitored_brands: tuple[str, ...],
+    monitored_domains: tuple[str, ...],
 ) -> tuple[str, str]:
-    status = defcon_status(items)
-    actions = immediate_actions(items)
+    status = advisory_status(items, exposure_signals)
+    enterprise_status = defcon_status(items)
+    actions = advisory_actions(items, exposure_signals)
+    exposure_grouped = group_exposure_signals(exposure_signals)
 
     critical_special = [
         item
         for item in items
         if item.zero_day or item.cvss_score == 10.0
     ]
-    top = items[:5]
+    top_advisories = items[:5]
+    top_exposure = exposure_signals[:5]
     major_governance = [
         item
         for item in items
@@ -3767,8 +4663,9 @@ def render_report(
         }
     ]
 
-    section_order = (
+    primary_section_order = (
         "Known Exploited Vulnerabilities",
+        "Dark Web and Criminal Ecosystem",
         "Microsoft, Azure and Identity",
         "Fortinet",
         "HPE and Aruba",
@@ -3785,14 +4682,26 @@ def render_report(
         "GRC",
     )
 
+    section_titles = {
+        "Known Exploited Vulnerabilities": (
+            "Active Exploitation and CISA KEV"
+        ),
+        "Dark Web and Criminal Ecosystem": (
+            "Law-Enforcement and Criminal Ecosystem Reporting"
+        ),
+        "Other Vendor Advisories": "Other Vendor Security Advisories",
+        "Cloud and Identity": "Cloud and Supply-Chain Security",
+    }
+
     grouped: dict[str, list[Item]] = {
-        section: [] for section in section_order
+        section: [] for section in primary_section_order
     }
 
     for item in items:
         grouped.setdefault(item.section, []).append(item)
 
     monitored_topics = ", ".join(MONITORED_GOVERNANCE_TOPICS)
+    monitored_references = monitored_brands + monitored_domains
     report_title = f"{BRIEF_NAME} v{BRIEF_VERSION}"
 
     text = [
@@ -3800,25 +4709,62 @@ def render_report(
         "=" * len(report_title),
         "",
         f"Reporting window: previous {lookback_hours} hours",
-        f"Overall threat level: {status['display']}",
-        f"Included primary developments: {len(items)}",
+        f"Security advisory level: {status['display']}",
+        (
+            "Enterprise cyber threat level: "
+            f"{enterprise_status['display']}"
+        ),
+        f"Primary security developments: {len(items)}",
+        f"Exposure and dark-web signals: {len(exposure_signals)}",
         f"Relevant discovery links: {len(executive_news)}",
-        f"Governance horizon: today through the next {upcoming_days} days",
         "",
-        "Executive Summary",
-        "-----------------",
+        "Security Advisory Overview",
+        "--------------------------",
         "",
-        "Top Developments",
+        "Priority Security Advisories",
     ]
 
-    if top:
-        for index, item in enumerate(top, start=1):
+    if top_advisories:
+        for index, item in enumerate(top_advisories, start=1):
             text.append(
                 f"{index}. [{priority(item)}] {item.title} "
-                f"— {item.source}"
+                f"— {item.source}: {item.link}"
             )
     else:
-        text.append("No qualifying primary developments were collected.")
+        text.append("No qualifying primary advisories were collected.")
+
+    if top_exposure:
+        text.extend(["", "Dark Web and Exposure Highlights"])
+
+        for signal in top_exposure:
+            text.append(
+                f"- [{signal.severity}/{signal.confidence}] "
+                f"{signal.title} — {signal.source}: {signal.link}"
+            )
+
+    ransomware_watch = exposure_grouped.get(
+        "Ransomware and Extortion",
+        [],
+    )[:3]
+    if ransomware_watch:
+        text.extend(["", "Ransomware and Extortion Watch"])
+        for signal in ransomware_watch:
+            text.append(
+                f"- [{signal.confidence}] {signal.title} "
+                f"— {signal.source}: {signal.link}"
+            )
+
+    credential_watch = exposure_grouped.get(
+        "Credential Exposure and Stealer Logs",
+        [],
+    )[:3]
+    if credential_watch:
+        text.extend(["", "Credential and Stealer Exposure"])
+        for signal in credential_watch:
+            text.append(
+                f"- [{signal.confidence}] {signal.title} "
+                f"— {signal.source}: {signal.link}"
+            )
 
     if executive_news:
         text.extend(
@@ -3826,13 +4772,11 @@ def render_report(
                 "",
                 "Relevant Cyber News",
                 (
-                    "Secondary-source headlines filtered for technology, "
-                    "geography and customer-sector relevance. Primary sources "
-                    "remain authoritative for risk and remediation."
+                    "One-line discovery links filtered for technology, "
+                    "geography, customer-sector and exposure relevance."
                 ),
             ]
         )
-
         for news_link in executive_news:
             tag_text = (
                 f"[{', '.join(news_link.tags)}] "
@@ -3855,66 +4799,94 @@ def render_report(
                 markers.append("CVSS 10.0")
             text.append(
                 f"- {', '.join(markers)}: {item.title} "
-                f"— {item.source}"
+                f"— {item.source}: {item.link}"
             )
     else:
         text.append("None identified in the reporting window.")
 
     if sector_impacts:
-        text.extend(["", "Sector and Customer Impact"])
-
+        text.extend(["", "Customer and Sector Advisory Impact"])
         for impact in sector_impacts:
             text.append(
                 f"- {impact.sector}: {impact.implication} "
                 f"Trigger: {impact.headline} — {impact.source}: {impact.link}"
             )
 
-    text.extend(["", "Compliance, Standards and Governance Changes"])
+    if monitored_references:
+        text.extend(
+            [
+                "",
+                (
+                    "Monitored references: "
+                    + ", ".join(monitored_references)
+                ),
+            ]
+        )
+
+    text.extend(["", "Recommended Security Advisory Actions"])
+    for action in actions:
+        text.append(f"- {action}")
 
     if major_governance:
+        text.extend(
+            [
+                "",
+                "Relevant Compliance and Governance Changes",
+            ]
+        )
         for item in major_governance:
             text.append(
-                f"- [{item.section}] {item.title} — {item.source}"
+                f"- [{item.section}] {item.title} "
+                f"— {item.source}: {item.link}"
             )
-    else:
-        text.append("No material change identified in the reporting window.")
-
-    text.extend(
-        [
-            "",
-            f"Going Live Today or Within {upcoming_days} Days",
-        ]
-    )
 
     if upcoming_events:
+        text.extend(
+            [
+                "",
+                f"Going Live Today or Within {upcoming_days} Days",
+            ]
+        )
         for event in upcoming_events:
             text.append(
                 f"- {event['date']}: {event['title']} "
                 f"({event.get('topic') or event.get('source')})"
             )
-    else:
-        text.append(f"No tracked milestone in the next {upcoming_days} days.")
 
-    text.extend(
-        [
-            "",
-            f"Monitored governance topics: {monitored_topics}",
-            "",
-            "Immediate Actions",
-        ]
-    )
+    for exposure_section in EXPOSURE_SECTION_ORDER:
+        section_signals = exposure_grouped.get(
+            exposure_section,
+            [],
+        )
+        if not section_signals:
+            continue
 
-    for action in actions:
-        text.append(f"- {action}")
+        text.extend(
+            [
+                "",
+                exposure_section,
+                "=" * len(exposure_section),
+            ]
+        )
 
-    for section in section_order:
+        for number, signal in enumerate(section_signals, start=1):
+            text.extend(render_exposure_text(signal, number))
+
+    for section in primary_section_order:
         section_items = grouped.get(section, [])
+        display_title = section_titles.get(section, section)
 
         if section == "SOC and Detection Engineering":
             if not section_items and not detection_opportunities:
                 continue
 
-            text.extend(["", section, "=" * len(section)])
+            text.extend(
+                [
+                    "",
+                    display_title,
+                    "=" * len(display_title),
+                ]
+            )
 
             for opportunity in detection_opportunities:
                 text.extend(
@@ -3936,7 +4908,13 @@ def render_report(
             if not section_items and not regional_links:
                 continue
 
-            text.extend(["", section, "=" * len(section)])
+            text.extend(
+                [
+                    "",
+                    display_title,
+                    "=" * len(display_title),
+                ]
+            )
 
             for regional_link in regional_links:
                 text.append(
@@ -3952,7 +4930,13 @@ def render_report(
         if not section_items:
             continue
 
-        text.extend(["", section, "=" * len(section)])
+        text.extend(
+            [
+                "",
+                display_title,
+                "=" * len(display_title),
+            ]
+        )
 
         for number, item in enumerate(section_items, start=1):
             text.extend(render_item_text(item, number))
@@ -3965,7 +4949,6 @@ def render_report(
                 "---------------------------------------------",
             ]
         )
-
         for event in upcoming_events:
             text.extend(
                 [
@@ -4016,23 +4999,33 @@ def render_report(
     text.extend(
         [
             "",
-            "CISO Watch List",
-            "---------------",
+            "Security Advisory and CISO Watch List",
+            "-------------------------------------",
+            "- New credential and stealer-log exposure affecting monitored domains.",
+            "- Ransomware victim claims involving customers, suppliers or key sectors.",
+            "- New access-broker activity targeting remote access and cloud identity.",
+            "- Data leaks containing credentials, tokens, source code or customer data.",
+            "- Brand impersonation, typosquatting and adversary-in-the-middle phishing.",
             "- New CISA KEV additions and confirmation of active exploitation.",
-            "- Explicit zero-days and vulnerabilities with CVSS 10.0.",
             "- Microsoft identity, Azure and Microsoft 365 attack activity.",
-            "- Fortinet, HPE and Aruba advisories affecting deployed estates.",
-            "- SOC detection gaps exposed by current attacker techniques.",
-            "- OT, oil and gas, energy and critical-infrastructure targeting.",
-            "- Ransomware access trends and destructive malware developments.",
-            "- Software supply-chain compromise and exposed build credentials.",
-            "- Scandinavian and European incidents with customer relevance.",
-            "- NSM warnings and changes relating to Sikkerhetsloven.",
-            "- Norwegian and EEA NIS2 implementation changes and deadlines.",
-            "- ISO/IEC 27001, ISO 50001, ISO 9001, ISO 14001 and "
-            "ISO/IEC 33000-series developments.",
-            "- Compliance deadlines, regulatory interpretation and audit duties.",
-            "- GRC changes affecting risk ownership and assurance evidence.",
+            "- Fortinet, HPE and Aruba advisories affecting customer estates.",
+            "- OT, energy, oil and gas, and critical-infrastructure targeting.",
+            "- Scandinavian and European cybercrime or law-enforcement developments.",
+            "- Material NIS2, Sikkerhetsloven, DORA and standards deadlines.",
+        ]
+    )
+
+    text.extend(
+        [
+            "",
+            "Handling Note",
+            "-------------",
+            (
+                "Dark-web and criminal-ecosystem claims may be incomplete, "
+                "misleading or intentionally false. Treat victim claims as "
+                "reported intelligence until corroborated by the affected "
+                "organisation, law enforcement or another reliable source."
+            ),
         ]
     )
 
@@ -4040,14 +5033,49 @@ def render_report(
         text.extend(["", "Source Warnings", "---------------"])
         text.extend(f"- {warning}" for warning in warnings)
 
-    top_html = (
+    top_advisories_html = (
         "".join(
             f"<li><strong>{priority(item)}:</strong> "
-            f"{html.escape(item.title)} "
+            f'<a href="{html.escape(item.link, quote=True)}">'
+            f"{html.escape(item.title)}</a> "
             f"<em>— {html.escape(item.source)}</em></li>"
-            for item in top
+            for item in top_advisories
         )
-        or "<li>No qualifying primary developments were collected.</li>"
+        or "<li>No qualifying primary advisories were collected.</li>"
+    )
+
+    top_exposure_html = "".join(
+        (
+            "<li style='margin-bottom:7px'>"
+            f"<strong>{html.escape(signal.severity)} / "
+            f"{html.escape(signal.confidence)}:</strong> "
+            f'<a href="{html.escape(signal.link, quote=True)}">'
+            f"{html.escape(signal.title)}</a> "
+            f"<em>— {html.escape(signal.source)}</em></li>"
+        )
+        for signal in top_exposure
+    )
+
+    ransomware_html = "".join(
+        (
+            "<li style='margin-bottom:7px'>"
+            f"<strong>{html.escape(signal.confidence)}:</strong> "
+            f'<a href="{html.escape(signal.link, quote=True)}">'
+            f"{html.escape(signal.title)}</a> "
+            f"<em>— {html.escape(signal.source)}</em></li>"
+        )
+        for signal in ransomware_watch
+    )
+
+    credential_html = "".join(
+        (
+            "<li style='margin-bottom:7px'>"
+            f"<strong>{html.escape(signal.confidence)}:</strong> "
+            f'<a href="{html.escape(signal.link, quote=True)}">'
+            f"{html.escape(signal.title)}</a> "
+            f"<em>— {html.escape(signal.source)}</em></li>"
+        )
+        for signal in credential_watch
     )
 
     executive_news_html = "".join(
@@ -4084,7 +5112,9 @@ def render_report(
                 )
             )
             + ": "
+            + f'<a href="{html.escape(item.link, quote=True)}">'
             + html.escape(item.title)
+            + "</a>"
             + " <em>— "
             + html.escape(item.source)
             + "</em></li>"
@@ -4106,42 +5136,54 @@ def render_report(
         for impact in sector_impacts
     )
 
-    governance_html = (
-        "".join(
-            f"<li><strong>{html.escape(item.section)}:</strong> "
-            f"{html.escape(item.title)} "
-            f"<em>— {html.escape(item.source)}</em></li>"
-            for item in major_governance
-        )
-        or "<li>No material change identified in the reporting window.</li>"
-    )
-
-    upcoming_html = (
-        "".join(
-            f"<li><strong>{html.escape(event['date'])}:</strong> "
-            f"{html.escape(event['title'])}"
-            + (
-                f" — {html.escape(event.get('topic', ''))}"
-                if event.get("topic")
-                else ""
-            )
-            + (
-                f' [<a href="{html.escape(event.get("source_url", ""), quote=True)}">'
-                "source</a>]"
-                if event.get("source_url")
-                else ""
-            )
-            + "</li>"
-            for event in upcoming_events
-        )
-        or (
-            f"<li>No tracked milestone in the next {upcoming_days} days.</li>"
-        )
-    )
-
     actions_html = "".join(
         f"<li>{html.escape(action)}</li>" for action in actions
     )
+
+    governance_html = "".join(
+        f"<li><strong>{html.escape(item.section)}:</strong> "
+        f'<a href="{html.escape(item.link, quote=True)}">'
+        f"{html.escape(item.title)}</a> "
+        f"<em>— {html.escape(item.source)}</em></li>"
+        for item in major_governance
+    )
+
+    upcoming_html = "".join(
+        f"<li><strong>{html.escape(event['date'])}:</strong> "
+        f"{html.escape(event['title'])}"
+        + (
+            f" — {html.escape(event.get('topic', ''))}"
+            if event.get("topic")
+            else ""
+        )
+        + (
+            f' [<a href="{html.escape(event.get("source_url", ""), quote=True)}">'
+            "source</a>]"
+            if event.get("source_url")
+            else ""
+        )
+        + "</li>"
+        for event in upcoming_events
+    )
+
+    exposure_sections_html: list[str] = []
+
+    for exposure_section in EXPOSURE_SECTION_ORDER:
+        section_signals = exposure_grouped.get(
+            exposure_section,
+            [],
+        )
+        if not section_signals:
+            continue
+
+        exposure_sections_html.append(
+            f"<h2 style='margin-top:32px'>"
+            f"{html.escape(exposure_section)}</h2>"
+        )
+        exposure_sections_html.extend(
+            render_exposure_html(signal)
+            for signal in section_signals
+        )
 
     detection_html = "".join(
         f"""
@@ -4188,20 +5230,22 @@ def render_report(
         for link in regional_links
     )
 
-    sections_html: list[str] = []
+    primary_sections_html: list[str] = []
 
-    for section in section_order:
+    for section in primary_section_order:
         section_items = grouped.get(section, [])
+        display_title = section_titles.get(section, section)
 
         if section == "SOC and Detection Engineering":
             if not section_items and not detection_opportunities:
                 continue
 
-            sections_html.append(
-                f"<h2 style='margin-top:32px'>{html.escape(section)}</h2>"
+            primary_sections_html.append(
+                f"<h2 style='margin-top:32px'>"
+                f"{html.escape(display_title)}</h2>"
             )
-            sections_html.append(detection_html)
-            sections_html.extend(
+            primary_sections_html.append(detection_html)
+            primary_sections_html.extend(
                 render_item_html(item) for item in section_items
             )
             continue
@@ -4210,14 +5254,13 @@ def render_report(
             if not section_items and not regional_links:
                 continue
 
-            sections_html.append(
-                f"<h2 style='margin-top:32px'>{html.escape(section)}</h2>"
+            primary_sections_html.append(
+                f"<h2 style='margin-top:32px'>"
+                f"{html.escape(display_title)}</h2>"
             )
-
             if regional_html:
-                sections_html.append(f"<ul>{regional_html}</ul>")
-
-            sections_html.extend(
+                primary_sections_html.append(f"<ul>{regional_html}</ul>")
+            primary_sections_html.extend(
                 render_item_html(item) for item in section_items
             )
             continue
@@ -4225,10 +5268,11 @@ def render_report(
         if not section_items:
             continue
 
-        sections_html.append(
-            f"<h2 style='margin-top:32px'>{html.escape(section)}</h2>"
+        primary_sections_html.append(
+            f"<h2 style='margin-top:32px'>"
+            f"{html.escape(display_title)}</h2>"
         )
-        sections_html.extend(
+        primary_sections_html.extend(
             render_item_html(item) for item in section_items
         )
 
@@ -4255,10 +5299,11 @@ def render_report(
             f"{html.escape(str(health['source']))}</td>"
             "<td style='padding:4px 12px'>Checked</td>"
             f"<td style='padding:4px 12px'>{health['items']}</td>"
-            "<td style='padding:4px 0'></td>"
+            "<td style='padding:4px 0'>"
+            f"{html.escape(str(health.get('detail', '')))}</td>"
             "</tr>"
         )
-        for health in active_health
+        for health in active_sources
     )
 
     if quiet_source_count:
@@ -4282,11 +5327,10 @@ def render_report(
             f"{html.escape(str(health.get('detail', '')))}</td>"
             "</tr>"
         )
-        for health in failed_health
+        for health in failed_sources
     )
 
     warnings_html = ""
-
     if warnings:
         warnings_html = (
             "<h2>Source Warnings</h2><ul>"
@@ -4304,32 +5348,74 @@ def render_report(
         f'border-radius:5px;">'
         f'{html.escape(status["display"])}</span>'
     )
+    enterprise_badge = (
+        f'<span style="display:inline-block;'
+        f'background:{enterprise_status["colour"]};'
+        f'color:{enterprise_status["text_colour"]};'
+        f'font-weight:700;padding:7px 12px;'
+        f'border-radius:5px;">'
+        f'{html.escape(enterprise_status["display"])}</span>'
+    )
+
+    monitored_html = ""
+    if monitored_references:
+        monitored_html = (
+            "<p><strong>Monitored references:</strong> "
+            + html.escape(", ".join(monitored_references))
+            + "</p>"
+        )
 
     relevant_news_block = ""
     if executive_news_html:
         relevant_news_block = (
             "<h3>Relevant Cyber News</h3>"
             "<p style='margin-top:0'>"
-            "Secondary-source headlines filtered for technology, geography "
-            "and customer-sector relevance. These links are for discovery; "
-            "primary vendor, government and standards sources remain "
-            "authoritative for risk ratings, compliance conclusions and "
-            "remediation actions."
+            "One-line discovery links filtered for technology, geography, "
+            "customer-sector and exposure relevance. Primary sources remain "
+            "authoritative for risk, compliance and remediation."
             "</p>"
             f"<ul>{executive_news_html}</ul>"
+        )
+
+    top_exposure_block = ""
+    if top_exposure_html:
+        top_exposure_block = (
+            "<h3>Dark Web and Exposure Highlights</h3>"
+            f"<ul>{top_exposure_html}</ul>"
+        )
+
+    ransomware_block = ""
+    if ransomware_html:
+        ransomware_block = (
+            "<h3>Ransomware and Extortion Watch</h3>"
+            f"<ul>{ransomware_html}</ul>"
+        )
+
+    credential_block = ""
+    if credential_html:
+        credential_block = (
+            "<h3>Credential and Stealer Exposure</h3>"
+            f"<ul>{credential_html}</ul>"
         )
 
     sector_block = ""
     if sector_html:
         sector_block = (
-            "<h3>Sector and Customer Impact</h3>"
+            "<h3>Customer and Sector Advisory Impact</h3>"
             f"<ul>{sector_html}</ul>"
         )
 
-    upcoming_detail_block = ""
-    if upcoming_events:
-        upcoming_detail_block = (
-            "<h2>Upcoming Compliance, Standards and Governance</h2>"
+    governance_block = ""
+    if governance_html:
+        governance_block = (
+            "<h3>Relevant Compliance and Governance Changes</h3>"
+            f"<ul>{governance_html}</ul>"
+        )
+
+    upcoming_block = ""
+    if upcoming_html:
+        upcoming_block = (
+            f"<h3>Going Live Today or Within {upcoming_days} Days</h3>"
             f"<ul>{upcoming_html}</ul>"
         )
 
@@ -4349,42 +5435,39 @@ def render_report(
       <p>
         <strong>Reporting window:</strong>
         previous {lookback_hours} hours<br>
-        <strong>Overall threat level:</strong> {badge}<br>
-        <strong>Included primary developments:</strong> {len(items)}<br>
-        <strong>Relevant discovery links:</strong> {len(executive_news)}<br>
-        <strong>Governance horizon:</strong>
-        today through the next {upcoming_days} days
+        <strong>Security advisory level:</strong> {badge}<br>
+        <strong>Enterprise cyber threat level:</strong>
+        {enterprise_badge}<br>
+        <strong>Primary security developments:</strong> {len(items)}<br>
+        <strong>Exposure and dark-web signals:</strong>
+        {len(exposure_signals)}<br>
+        <strong>Relevant discovery links:</strong> {len(executive_news)}
       </p>
 
-      <h2>Executive Summary</h2>
+      <h2>Security Advisory Overview</h2>
 
-      <h3>Top Developments</h3>
-      <ol>{top_html}</ol>
+      <h3>Priority Security Advisories</h3>
+      <ol>{top_advisories_html}</ol>
 
+      {top_exposure_block}
+      {ransomware_block}
+      {credential_block}
       {relevant_news_block}
 
       <h3>Zero-Day and CVSS 10.0</h3>
       <ul>{special_html}</ul>
 
       {sector_block}
+      {monitored_html}
 
-      <h3>Compliance, Standards and Governance Changes</h3>
-      <ul>{governance_html}</ul>
-
-      <h3>Going Live Today or Within {upcoming_days} Days</h3>
-      <ul>{upcoming_html}</ul>
-
-      <p>
-        <strong>Monitored governance topics:</strong>
-        {html.escape(monitored_topics)}
-      </p>
-
-      <h2>Immediate Actions</h2>
+      <h3>Recommended Security Advisory Actions</h3>
       <ul>{actions_html}</ul>
 
-      {''.join(sections_html)}
+      {governance_block}
+      {upcoming_block}
 
-      {upcoming_detail_block}
+      {''.join(exposure_sections_html)}
+      {''.join(primary_sections_html)}
 
       <h2>Source Coverage</h2>
       <table style="
@@ -4403,25 +5486,28 @@ def render_report(
         <tbody>{health_html}</tbody>
       </table>
 
-      <h2>CISO Watch List</h2>
+      <h2>Security Advisory and CISO Watch List</h2>
       <ul>
+        <li>Credential and stealer-log exposure affecting monitored domains.</li>
+        <li>Ransomware claims involving customers, suppliers or key sectors.</li>
+        <li>Initial-access listings targeting remote access or cloud identity.</li>
+        <li>Leaks containing credentials, tokens, source code or customer data.</li>
+        <li>Brand impersonation, typosquatting and AiTM phishing.</li>
         <li>New CISA KEV additions and active exploitation.</li>
-        <li>Explicit zero-days and CVSS 10.0 vulnerabilities.</li>
-        <li>Microsoft identity, Azure and Microsoft 365 attacks.</li>
-        <li>Fortinet, HPE and Aruba security advisories.</li>
-        <li>SOC detection gaps exposed by current attacker techniques.</li>
-        <li>OT, oil and gas, energy and critical-infrastructure threats.</li>
-        <li>Ransomware access and destructive malware trends.</li>
-        <li>Software supply-chain and build credential compromise.</li>
-        <li>Scandinavian and European incidents with customer impact.</li>
-        <li>NSM, Sikkerhetsloven and Norwegian NIS2 changes.</li>
-        <li>
-          ISO/IEC 27001, ISO 50001, ISO 9001, ISO 14001 and
-          ISO/IEC 33000-series developments.
-        </li>
-        <li>Compliance deadlines and regulatory implementation changes.</li>
-        <li>Governance, risk, audit and assurance developments.</li>
+        <li>Microsoft, Azure, Entra ID and Microsoft 365 attacks.</li>
+        <li>Fortinet, HPE and Aruba advisories.</li>
+        <li>OT, energy, oil and gas, and critical-infrastructure targeting.</li>
+        <li>Scandinavian and European cybercrime developments.</li>
       </ul>
+
+      <h2>Handling Note</h2>
+      <p>
+        Dark-web and criminal-ecosystem claims may be incomplete, misleading
+        or intentionally false. Treat victim claims as reported intelligence
+        until corroborated by the affected organisation, law enforcement or
+        another reliable source. This briefing does not connect to onion
+        services, criminal forums, leak sites or stolen-data repositories.
+      </p>
 
       {warnings_html}
     </body>
@@ -4479,6 +5565,15 @@ def main() -> int:
             minimum=1,
             maximum=90,
         )
+        exposure_max = integer_setting(
+            "EXPOSURE_MAX_ITEMS",
+            default=20,
+            minimum=5,
+            maximum=60,
+        )
+        monitored_brands = csv_setting("MONITORED_BRANDS")
+        monitored_domains = csv_setting("MONITORED_DOMAINS")
+        hibp_api_key = os.getenv("HIBP_API_KEY", "").strip()
 
         local_now = datetime.now(OSLO_TIMEZONE)
         cutoff = datetime.now(timezone.utc) - timedelta(
@@ -4491,6 +5586,7 @@ def main() -> int:
         )
 
         collected: list[Item] = []
+        exposure_candidates: list[ExposureSignal] = []
         warnings: list[str] = []
         source_health: list[dict[str, Any]] = []
 
@@ -4608,6 +5704,75 @@ def main() -> int:
                 )
                 print(f"WARNING: {warning}", file=sys.stderr)
 
+        try:
+            hibp_signals = fetch_hibp_breaches(cutoff)
+            exposure_candidates.extend(hibp_signals)
+            source_health.append(
+                {
+                    "source": "Have I Been Pwned breach catalogue",
+                    "status": "OK",
+                    "items": len(hibp_signals),
+                    "detail": "Public breach metadata",
+                }
+            )
+            print(
+                "Have I Been Pwned breach catalogue: "
+                f"{len(hibp_signals)} new exposure signal(s)"
+            )
+        except Exception as error:
+            warning = (
+                "Have I Been Pwned breach catalogue: "
+                f"{type(error).__name__}: {error}"
+            )
+            warnings.append(warning)
+            source_health.append(
+                {
+                    "source": "Have I Been Pwned breach catalogue",
+                    "status": "FAILED",
+                    "items": 0,
+                    "detail": f"{type(error).__name__}: {error}",
+                }
+            )
+            print(f"WARNING: {warning}", file=sys.stderr)
+
+        if monitored_domains and hibp_api_key:
+            try:
+                domain_signals = fetch_hibp_domain_exposure(
+                    monitored_domains,
+                    hibp_api_key,
+                )
+                exposure_candidates.extend(domain_signals)
+                source_health.append(
+                    {
+                        "source": "Have I Been Pwned domain search",
+                        "status": "OK",
+                        "items": len(domain_signals),
+                        "detail": (
+                            f"{len(monitored_domains)} verified domain(s) "
+                            "configured"
+                        ),
+                    }
+                )
+                print(
+                    "Have I Been Pwned domain search: "
+                    f"{len(domain_signals)} domain exposure signal(s)"
+                )
+            except Exception as error:
+                warning = (
+                    "Have I Been Pwned domain search: "
+                    f"{type(error).__name__}: {error}"
+                )
+                warnings.append(warning)
+                source_health.append(
+                    {
+                        "source": "Have I Been Pwned domain search",
+                        "status": "FAILED",
+                        "items": 0,
+                        "detail": f"{type(error).__name__}: {error}",
+                    }
+                )
+                print(f"WARNING: {warning}", file=sys.stderr)
+
         all_items = deduplicate(collected)
 
         executive_news_candidates: list[NewsLink] = []
@@ -4702,6 +5867,20 @@ def main() -> int:
             executive_news_max,
         )
 
+        exposure_candidates.extend(
+            build_open_source_exposure_signals(
+                items,
+                executive_news,
+                monitored_brands,
+                monitored_domains,
+                max_items=exposure_max,
+            )
+        )
+        exposure_signals = deduplicate_exposure_signals(
+            exposure_candidates,
+            exposure_max,
+        )
+
         sector_impacts = build_sector_impacts(
             items,
             executive_news,
@@ -4743,12 +5922,17 @@ def main() -> int:
             sector_impacts,
             detection_opportunities,
             regional_links,
+            exposure_signals,
+            monitored_brands,
+            monitored_domains,
         )
 
-        status = defcon_status(items)
+        status = advisory_status(items, exposure_signals)
+        enterprise_status = defcon_status(items)
         subject = (
-            f"{status['display']} | {BRIEF_NAME} v{BRIEF_VERSION} | "
-            f"{len(items)} development(s)"
+            f"{status['display']} Advisory | "
+            f"{enterprise_status['display']} | "
+            f"{BRIEF_NAME} v{BRIEF_VERSION}"
         )
 
         send_email(
@@ -4765,6 +5949,7 @@ def main() -> int:
             f"{len(items)} item(s), "
             f"{len(upcoming_events)} upcoming event(s), "
             f"{len(executive_news)} relevant news link(s), "
+            f"{len(exposure_signals)} exposure signal(s), "
             f"{len(sector_impacts)} sector impact(s), "
             f"{len(detection_opportunities)} detection opportunity(s), "
             f"{len(regional_links)} regional link(s), "
