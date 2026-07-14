@@ -8,6 +8,98 @@ current working version. Versions before 4.0 below are reconstructed from those
 milestones and repository changes; they were not all published as formal
 releases.
 
+## 4.2.0 — 2026-07-14
+
+### Summary
+
+Refactored the v4.1 monolithic application into a modular, testable package and
+reduced practical pipeline runtime through bounded parallel collection,
+connection reuse and transient-failure retries. Report content, scoring and
+source coverage remain compatible with v4.1.
+
+### Added
+
+- Added the `security_brief` package with focused modules for:
+  - Runtime orchestration.
+  - Source collection.
+  - HTTP connection management.
+  - Deterministic analysis.
+  - Report rendering.
+  - Governance milestones.
+  - Data models.
+  - Static source configuration.
+  - Classification and relevance rules.
+  - SMTP delivery.
+- Added bounded concurrent collection of independent primary and discovery
+  sources.
+- Added `SOURCE_WORKERS`, defaulting to eight and bounded between one and
+  sixteen.
+- Added a thread-local HTTP client with:
+  - Connection pooling.
+  - Two bounded retries.
+  - Backoff.
+  - HTTP 429 and transient 5xx handling.
+  - `Retry-After` support.
+- Added offline `unittest` regression coverage for:
+  - Parallel source failure isolation.
+  - Stable Source Coverage ordering.
+  - HIBP public breach mapping.
+  - Exposure classification.
+  - Retained Security Advisory and CISO report sections.
+- Added an automatic regression-test step to both GitHub Actions workflows.
+- Added typed runtime settings, pipeline state and shared report-context containers.
+- Added generic fetch-task and fetch-outcome models for consistent source
+  health reporting.
+
+### Changed
+
+- Reduced `src/send_security_advisory.py` to a seven-line compatibility entry
+  point.
+- Replaced repeated source-level `try/except` blocks with one reusable
+  collection function.
+- Moved static source definitions out of execution logic.
+- Moved deterministic scoring and classification rules into a dedicated module.
+- Split the previous combined 900-line report renderer into context building,
+  plain-text rendering, HTML rendering and a small compatibility wrapper.
+- Resolved environment settings once at startup rather than repeatedly during
+  orchestration.
+- Cached repeated integer and comma-separated environment parsing.
+- Deduplicated primary intelligence before NVD enrichment to preserve API
+  capacity.
+- Kept public exposure intelligence separate from primary advisory scoring.
+- Preserved configured source order in Source Coverage while fetching
+  concurrently.
+- Updated production and test workflow names to v4.2.
+
+### Compatibility
+
+- Retained the existing command:
+  `python src/send_security_advisory.py`.
+- Retained existing required and optional GitHub secrets.
+- Retained report titles, sections, scoring logic, HTML and plain-text output.
+- Regression-compared deterministic v4.1 and v4.2 rendering with identical
+  fixtures.
+
+### Fixed
+
+- Removed the main 6,000-line maintenance bottleneck.
+- Removed repeated TLS and HTTP connection setup for sequential requests made by
+  the same worker.
+- Centralised source failure formatting and health-record creation.
+- Prevented one failed concurrent task from cancelling other source
+  collections.
+
+### Known limitations
+
+- The report renderer and large deterministic rule tables remain substantial
+  modules by design.
+- HTML source adapters still require maintenance when publishers change page
+  structure.
+- Parallel collection improves elapsed runtime but remains dependent on source
+  response times and rate limits.
+
+---
+
 ## 4.1 - 2026-07-14
 
 ### Summary
