@@ -1,0 +1,71 @@
+name: Daily CISO security briefing
+
+on:
+  schedule:
+    - cron: "7 7 * * *"
+      timezone: "Europe/Oslo"
+
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: Use auto, 36 or 72
+        required: true
+        default: "auto"
+        type: string
+
+      kev_lookback_days:
+        description: Use auto or a number of calendar days
+        required: true
+        default: "auto"
+        type: string
+
+      max_items:
+        description: Maximum number of developments
+        required: true
+        default: "40"
+        type: string
+
+permissions:
+  contents: read
+
+concurrency:
+  group: daily-ciso-security-brief
+  cancel-in-progress: false
+
+jobs:
+  send-combined-brief:
+    name: Generate and email briefing
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --requirement requirements.txt
+
+      - name: Generate and send briefing
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+          # Manual runs use the selected values.
+          # Scheduled runs use the fallback values.
+          NEWS_LOOKBACK_HOURS: ${{ inputs.lookback_hours || 'auto' }}
+          KEV_LOOKBACK_DAYS: ${{ inputs.kev_lookback_days || 'auto' }}
+          NEWS_MAX_ITEMS: ${{ inputs.max_items || '40' }}
+
+          UPCOMING_GOVERNANCE_DAYS: "14"
+
+        run: python src/send_combined_brief.py
