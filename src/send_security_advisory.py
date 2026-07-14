@@ -1,5 +1,33 @@
+"""Daily Security Brief collection, analysis, rendering and delivery pipeline.
+
+This module implements the complete Daily Security Brief v4.1 workflow. It is
+intentionally self-contained so that it can run as a single GitHub Actions job
+without a database, hosted service or language-model dependency.
+
+The processing flow is:
+
+1. Read runtime configuration and credentials from environment variables.
+2. Collect authoritative advisories, vendor research, governance updates and
+   selected cybersecurity news from RSS, JSON APIs and HTML indexes.
+3. Normalise source records into common dataclasses.
+4. Apply deterministic categorisation, relevance scoring and deduplication.
+5. Enrich CVEs with NVD severity data and identify active exploitation.
+6. Derive customer-sector impact, detection opportunities and exposure signals.
+7. Render equivalent plain-text and HTML reports.
+8. Deliver the briefing through authenticated Gmail SMTP.
+
+Dark-web and exposure content is derived only from public or authorised data.
+The application does not connect to onion services, criminal forums,
+ransomware leak sites or repositories containing stolen data.
+
+Configuration is deliberately expressed as constants and tuples in this file.
+That makes the application easy to deploy, but it also means source adapters
+and keyword taxonomies should be reviewed whenever publishers change their
+feeds or page structures.
+"""
 from __future__ import annotations
 
+# Python standard-library dependencies.
 import calendar
 import html
 import json
@@ -19,11 +47,16 @@ from typing import Any, Iterable
 from urllib.parse import quote, urljoin
 from urllib.request import Request, urlopen
 
+# Third-party parsing and HTTP dependencies declared in requirements.txt.
 import feedparser
 import requests
 from bs4 import BeautifulSoup, Tag
 from dateutil import parser as date_parser
 
+
+# ---------------------------------------------------------------------------
+# Application identity and external service endpoints
+# ---------------------------------------------------------------------------
 
 BRIEF_NAME = "Daily Security Brief"
 BRIEF_VERSION = "4.1"
@@ -56,6 +89,10 @@ UPCOMING_GOVERNANCE_FILE = Path(
         "config/upcoming_governance.json",
     )
 )
+
+# ---------------------------------------------------------------------------
+# Governance topics, threat-level presentation and date-detection vocabulary
+# ---------------------------------------------------------------------------
 
 MONITORED_GOVERNANCE_TOPICS = (
     "NSM updates",
@@ -138,6 +175,13 @@ GOVERNANCE_SECTIONS = {
 
 @dataclass(frozen=True)
 class Source:
+    """Describe one configured intelligence source and its parser rules.
+
+    A source can be an RSS feed or an HTML index. Optional selectors and URL
+    patterns are used only by HTML collectors, while ``topic_keywords`` can narrow
+    a broad source to security-relevant entries.
+    """
+
     name: str
     vendor: str
     url: str
@@ -154,6 +198,12 @@ class Source:
 
 @dataclass
 class Item:
+    """Represent a normalised primary security development.
+
+    Instances combine source metadata, deterministic classification, CVE and
+    exploitation attributes, and advisory text used by both report renderers.
+    """
+
     title: str
     summary: str
     link: str
@@ -178,6 +228,13 @@ class Item:
 
 @dataclass
 class NewsLink:
+    """Represent a concise secondary-news discovery link.
+
+    News links are intentionally lighter than primary items: they support executive
+    awareness and navigation but do not independently determine remediation or
+    compliance conclusions.
+    """
+
     title: str
     link: str
     source: str
@@ -189,6 +246,13 @@ class NewsLink:
 
 @dataclass
 class ExposureSignal:
+    """Represent a dark-web, breach or external-exposure intelligence signal.
+
+    The confidence and severity fields are kept separate because an alarming claim
+    may still be unverified. The report uses this distinction to avoid presenting
+    secondary reporting as a confirmed customer incident.
+    """
+
     title: str
     signal_type: str
     source: str
@@ -206,6 +270,8 @@ class ExposureSignal:
 
 @dataclass
 class SectorImpact:
+    """Represent the most relevant implication for one customer sector."""
+
     sector: str
     headline: str
     implication: str
@@ -216,6 +282,13 @@ class SectorImpact:
 
 @dataclass
 class DetectionOpportunity:
+    """Represent a suggested SOC detection or hunting opportunity.
+
+    These records are deterministic starting points containing a detection focus,
+    recommended telemetry and a MITRE ATT&CK reference. They require analyst
+    validation before operational use.
+    """
+
     title: str
     detection: str
     data_sources: str
@@ -224,6 +297,13 @@ class DetectionOpportunity:
     link: str
     score: int
 
+
+# ---------------------------------------------------------------------------
+# Secondary cyber-news discovery sources
+#
+# These publications supply concise awareness links. They do not override
+# authoritative vendor, government or standards sources for remediation.
+# ---------------------------------------------------------------------------
 
 EXECUTIVE_NEWS_RSS = (
     {
@@ -371,6 +451,8 @@ EXECUTIVE_NEWS_HTML = (
     },
 )
 
+# Limit each publisher so a high-volume outlet cannot dominate the executive view.
+
 EXECUTIVE_NEWS_SOURCE_LIMITS = {
     "Reuters Cybersecurity": 2,
     "SecurityWeek": 2,
@@ -385,6 +467,8 @@ EXECUTIVE_NEWS_SOURCE_LIMITS = {
     "Industrial Cyber": 2,
 }
 
+
+# Weighted relevance taxonomy used for secondary-news selection.
 
 RELEVANCE_RULES = (
     (
@@ -638,6 +722,8 @@ RELEVANCE_RULES = (
     ),
 )
 
+# Terms that normally identify promotional or low-value discovery content.
+
 EXECUTIVE_NEWS_EXCLUDE = (
     "webinar",
     "sponsored",
@@ -654,6 +740,10 @@ EXECUTIVE_NEWS_EXCLUDE = (
     "top 10 tools",
     "penetration testing framework",
 )
+
+# ---------------------------------------------------------------------------
+# Dark-web, breach and external-exposure classification rules
+# ---------------------------------------------------------------------------
 
 EXPOSURE_SIGNAL_RULES = (
     (
@@ -798,6 +888,8 @@ EXPOSURE_SIGNAL_RULES = (
     ),
 )
 
+# Stable presentation order for exposure intelligence sections.
+
 EXPOSURE_SECTION_ORDER = (
     "Ransomware and Extortion",
     "Credential Exposure and Stealer Logs",
@@ -806,6 +898,8 @@ EXPOSURE_SECTION_ORDER = (
     "Brand, Impersonation and Phishing",
     "Dark Web and Criminal Ecosystem",
 )
+
+# HIBP data classes that imply credential, authentication or high-impact exposure.
 
 SENSITIVE_DATA_CLASSES = {
     "Passwords",
@@ -820,6 +914,8 @@ SENSITIVE_DATA_CLASSES = {
     "Private messages",
     "Source code",
 }
+
+# Customer-sector vocabulary and standard advisory implications.
 
 SECTOR_IMPACT_RULES = (
     (
@@ -1003,6 +1099,8 @@ SECTOR_IMPACT_RULES = (
     ),
 )
 
+# Deterministic SOC hunting and detection recommendations by category.
+
 DETECTION_TEMPLATES = {
     "Identity security": (
         "Detect abnormal sign-ins, OAuth consent, token use, session reuse and "
@@ -1090,6 +1188,8 @@ DETECTION_TEMPLATES = {
     ),
 }
 
+# Regional markers used to identify Scandinavian and European relevance.
+
 REGIONAL_TERMS = (
     "norway",
     "norwegian",
@@ -1117,6 +1217,10 @@ REGIONAL_TERMS = (
     "sikkerhetsloven",
 )
 
+
+# ---------------------------------------------------------------------------
+# Primary RSS and Atom intelligence sources
+# ---------------------------------------------------------------------------
 
 RSS_SOURCES = (
     Source(
@@ -1191,6 +1295,13 @@ RSS_SOURCES = (
         section="SOC and Detection Engineering",
     ),
 )
+
+# ---------------------------------------------------------------------------
+# Primary HTML source adapters
+#
+# Each adapter defines selectors and URL policies for a publisher index. HTML
+# integrations are inherently more brittle than feeds and should be monitored.
+# ---------------------------------------------------------------------------
 
 HTML_SOURCES = (
     Source(
@@ -1653,6 +1764,10 @@ HTML_SOURCES = (
 )
 
 
+# ---------------------------------------------------------------------------
+# Primary intelligence classification, explanation and action templates
+# ---------------------------------------------------------------------------
+
 CATEGORY_RULES = (
     (
         "Active exploitation",
@@ -1869,6 +1984,8 @@ CATEGORY_RULES = (
     ),
 )
 
+# Standard explanation of why each deterministic category matters.
+
 WHY = {
     "Active exploitation": (
         "The source indicates real-world exploitation or a materially shortened "
@@ -1937,6 +2054,8 @@ WHY = {
     ),
 }
 
+# Standard first-response action associated with each category.
+
 ACTIONS = {
     "Active exploitation": (
         "Identify exposure, verify patches or mitigations, review public-facing "
@@ -2004,6 +2123,8 @@ ACTIONS = {
     ),
 }
 
+# Norwegian month-name translation used by the date parser.
+
 NORWEGIAN_MONTHS = {
     "januar": "January",
     "februar": "February",
@@ -2018,6 +2139,8 @@ NORWEGIAN_MONTHS = {
     "november": "November",
     "desember": "December",
 }
+
+# Regular expressions for dates commonly encountered in source pages.
 
 DATE_PATTERNS = (
     r"\b\d{4}-\d{2}-\d{2}\b",
@@ -2037,6 +2160,12 @@ DATE_PATTERNS = (
 
 
 def required(name: str) -> str:
+    """Return a mandatory environment variable or fail fast.
+
+    Whitespace-only values are treated as missing so secrets and addresses cannot
+    silently propagate as invalid runtime configuration.
+    """
+
     value = os.getenv(name)
     if not value:
         raise RuntimeError(f"Missing environment variable: {name}")
@@ -2049,6 +2178,13 @@ def integer_setting(
     minimum: int,
     maximum: int,
 ) -> int:
+    """Read, validate and bound an integer environment setting.
+
+    The helper centralises defensive parsing for item limits, lookback windows and
+    other numeric controls. A descriptive error is raised when the supplied value
+    falls outside the permitted range.
+    """
+
     raw = os.getenv(name, str(default))
     try:
         value = int(raw)
@@ -2064,8 +2200,17 @@ def integer_setting(
 
 
 def reporting_window_hours() -> int:
+    """Resolve the news lookback window for the current run.
+
+    ``NEWS_LOOKBACK_HOURS=auto`` uses 72 hours on Mondays and 36 hours on all other
+    days in Europe/Oslo. Explicit numeric values are accepted for testing and
+    manual investigations.
+    """
+
     raw = os.getenv("NEWS_LOOKBACK_HOURS", "auto").strip().lower()
 
+    # Automatic mode follows the Europe/Oslo working week rather than UTC.
+    # Monday therefore includes the weekend by using a 72-hour window.
     if raw in {"", "auto", "automatic"}:
         local_now = datetime.now(OSLO_TIMEZONE)
         return 72 if local_now.weekday() == 0 else 36
@@ -2086,6 +2231,12 @@ def reporting_window_hours() -> int:
 
 
 def kev_lookback_days(lookback_hours: int) -> int:
+    """Resolve the CISA KEV lookback in calendar days.
+
+    Automatic mode converts the hour-based reporting window into enough calendar
+    days to avoid losing KEV entries around day boundaries.
+    """
+
     raw = os.getenv("KEV_LOOKBACK_DAYS", "auto").strip().lower()
 
     if raw in {"", "auto", "automatic"}:
@@ -2107,6 +2258,12 @@ def kev_lookback_days(lookback_hours: int) -> int:
 
 
 def clean_text(value: Any) -> str:
+    """Normalise arbitrary input into compact single-line text.
+
+    HTML entities are decoded and repeated whitespace is collapsed. This function
+    is used at source boundaries before data enters scoring or rendering logic.
+    """
+
     if value is None:
         return ""
 
@@ -2115,10 +2272,14 @@ def clean_text(value: Any) -> str:
 
 
 def absolute_url(base: str, href: str) -> str:
+    """Resolve a possibly relative link against its source page URL."""
+
     return urljoin(base, href.strip())
 
 
 def extract_cves(text: str) -> list[str]:
+    """Extract, normalise and deduplicate CVE identifiers from text."""
+
     return sorted(
         {
             match.upper()
@@ -2132,6 +2293,12 @@ def extract_cves(text: str) -> list[str]:
 
 
 def parse_date_text(text: str) -> datetime | None:
+    """Parse one date from free-form English or Norwegian text.
+
+    The parser handles ISO-like values, common month-name formats and Norwegian
+    month names. Returned datetimes are normalised to UTC where possible.
+    """
+
     normalised = clean_text(text)
 
     for norwegian, english in NORWEGIAN_MONTHS.items():
@@ -2161,6 +2328,12 @@ def parse_date_text(text: str) -> datetime | None:
 
 
 def parse_all_dates(text: str) -> list[date]:
+    """Return every distinct date recognised in a block of text.
+
+    This is primarily used for governance milestones, where an article may mention
+    publication, transition and enforcement dates in the same paragraph.
+    """
+
     normalised = clean_text(text)
 
     for norwegian, english in NORWEGIAN_MONTHS.items():
@@ -2193,11 +2366,15 @@ def parse_all_dates(text: str) -> list[date]:
 
 
 def date_has_effective_context(text: str) -> bool:
+    """Check whether a date appears near enforcement or deadline language."""
+
     lowered = clean_text(text).lower()
     return any(term in lowered for term in EFFECTIVE_DATE_TERMS)
 
 
 def feed_entry_time(entry: Any) -> datetime | None:
+    """Extract the most reliable publication timestamp from an RSS entry."""
+
     for key in ("published_parsed", "updated_parsed", "created_parsed"):
         parsed = entry.get(key)
         if parsed:
@@ -2221,8 +2398,16 @@ def feed_entry_time(entry: Any) -> datetime | None:
 
 
 def classify(text: str, source: Source) -> tuple[str, int]:
+    """Assign a deterministic category and relevance weight to source text.
+
+    Rules are evaluated in configured order. Source-specific fallbacks preserve
+    meaningful section placement even when no general keyword category matches.
+    """
+
     lowered = text.lower()
 
+    # Rules are deliberately first-match: ordering therefore expresses
+    # category precedence as well as keyword membership.
     for category, keywords, weight in CATEGORY_RULES:
         if any(keyword in lowered for keyword in keywords):
             return category, weight
@@ -2256,6 +2441,12 @@ def classify(text: str, source: Source) -> tuple[str, int]:
 
 
 def route_section(category: str, source: Source) -> str:
+    """Map a classified record into its final report section.
+
+    Vendor-specific and governance-specific routing takes precedence over the
+    source's default section so the report structure stays predictable.
+    """
+
     if source.vendor == "Fortinet":
         return "Fortinet"
 
@@ -2290,6 +2481,8 @@ def route_section(category: str, source: Source) -> str:
 
 
 def suppress_marketing(text: str) -> bool:
+    """Return ``True`` when text appears promotional rather than operational."""
+
     lowered = text.lower()
 
     marketing_terms = (
@@ -2319,6 +2512,13 @@ def build_item(
     published: datetime,
     cutoff: datetime,
 ) -> Item | None:
+    """Build a validated and scored primary security item.
+
+    The function applies the reporting cutoff, source topic filters, marketing
+    suppression, category scoring, recency weighting and initial advisory text.
+    Records that do not meet the source or time criteria return ``None``.
+    """
+
     title = clean_text(title)
     summary = clean_text(summary)
 
@@ -2341,6 +2541,8 @@ def build_item(
 
     score = source.base_score + weight
 
+    # Freshness is a small relevance modifier; source authority and threat
+    # characteristics remain the dominant score components.
     age = datetime.now(timezone.utc) - published
     if age <= timedelta(hours=24):
         score += 12
@@ -2388,6 +2590,12 @@ def build_item(
 
 
 def fetch_rss(source: Source, cutoff: datetime) -> list[Item]:
+    """Collect and normalise qualifying entries from one RSS or Atom feed.
+
+    A failed or empty feed raises an error so Source Coverage can distinguish a
+    collection problem from a healthy source with no relevant in-window entries.
+    """
+
     request = Request(
         source.url,
         headers={
@@ -2439,6 +2647,8 @@ def fetch_rss(source: Source, cutoff: datetime) -> list[Item]:
 
 
 def candidate_container(node: Tag) -> Tag:
+    """Find the nearest useful HTML container for an article link."""
+
     current = node
 
     for _ in range(5):
@@ -2460,6 +2670,8 @@ def candidate_container(node: Tag) -> Tag:
 
 
 def extract_page_metadata(url: str) -> tuple[datetime | None, str]:
+    """Fetch an article page and extract publication date and summary metadata."""
+
     response = requests.get(
         url,
         timeout=30,
@@ -2505,6 +2717,8 @@ def extract_page_metadata(url: str) -> tuple[datetime | None, str]:
 
 
 def extract_meta_summary(soup: BeautifulSoup) -> str:
+    """Extract a concise description from common HTML metadata elements."""
+
     for selector in (
         "meta[name='description']",
         "meta[property='og:description']",
@@ -2519,6 +2733,8 @@ def extract_meta_summary(soup: BeautifulSoup) -> str:
 
 
 def link_allowed(source: Source, link: str) -> bool:
+    """Apply source-specific URL inclusion and exclusion rules."""
+
     lowered = link.lower()
 
     if source.include_patterns and not any(
@@ -2533,6 +2749,12 @@ def link_allowed(source: Source, link: str) -> bool:
 
 
 def fetch_html(source: Source, cutoff: datetime) -> list[Item]:
+    """Collect qualifying articles from a configured HTML index page.
+
+    Candidate links are discovered with CSS selectors, filtered by URL policy and
+    supplemented with detail-page metadata when the index does not expose a date.
+    """
+
     response = requests.get(
         source.url,
         timeout=45,
@@ -2544,6 +2766,8 @@ def fetch_html(source: Source, cutoff: datetime) -> list[Item]:
     candidates: list[tuple[str, str, str, datetime | None]] = []
     seen_links: set[str] = set()
 
+    # A source can expose multiple historical layouts. Duplicate links are
+    # removed later, allowing several selectors to be tried safely.
     for selector in source.selectors:
         for node in soup.select(selector):
             if not isinstance(node, Tag):
@@ -2623,6 +2847,13 @@ def executive_news_relevance(
     summary: str,
     base_score: int,
 ) -> tuple[int, list[str]]:
+    """Score a secondary-news story against the configured advisory priorities.
+
+    The result combines publisher baseline, technology, geography, sector and
+    high-impact keyword weights. Promotional content receives a negative score and
+    is excluded before report selection.
+    """
+
     combined = f" {clean_text(title)} {clean_text(summary)} ".lower()
 
     if any(term in combined for term in EXECUTIVE_NEWS_EXCLUDE):
@@ -2631,6 +2862,8 @@ def executive_news_relevance(
     score = base_score
     tags: list[str] = []
 
+    # A story may match several dimensions simultaneously, for example
+    # Microsoft + identity + Europe. All matching dimensions contribute.
     for tag, terms, weight in RELEVANCE_RULES:
         if any(term in combined for term in terms):
             score += weight
@@ -2652,6 +2885,8 @@ def build_news_link(
     published: datetime,
     cutoff: datetime,
 ) -> NewsLink | None:
+    """Validate, score and construct a secondary-news discovery record."""
+
     title = clean_text(title)
     summary = clean_text(summary)
 
@@ -2689,6 +2924,8 @@ def fetch_executive_news_rss(
     source: dict[str, Any],
     cutoff: datetime,
 ) -> list[NewsLink]:
+    """Collect relevant executive-news links from an RSS or Atom source."""
+
     request = Request(
         source["url"],
         headers={
@@ -2745,6 +2982,8 @@ def fetch_executive_news_html(
     source: dict[str, Any],
     cutoff: datetime,
 ) -> list[NewsLink]:
+    """Collect relevant executive-news links from an HTML publication index."""
+
     response = requests.get(
         source["url"],
         timeout=45,
@@ -2836,6 +3075,8 @@ def fetch_executive_news_html(
 
 
 def news_title_tokens(title: str) -> set[str]:
+    """Tokenise a headline for lightweight similarity comparison."""
+
     ignored = {
         "the",
         "and",
@@ -2863,6 +3104,8 @@ def news_title_tokens(title: str) -> set[str]:
 
 
 def news_similarity(first: str, second: str) -> float:
+    """Calculate Jaccard similarity between two normalised headline token sets."""
+
     first_tokens = news_title_tokens(first)
     second_tokens = news_title_tokens(second)
 
@@ -2879,6 +3122,12 @@ def select_executive_news(
     primary_items: list[Item],
     max_items: int,
 ) -> list[NewsLink]:
+    """Select a diverse, deduplicated set of executive-news links.
+
+    Stories already represented by primary intelligence are suppressed. The
+    selection also enforces near-duplicate removal and per-publisher limits.
+    """
+
     ordered = sorted(
         links,
         key=lambda item: (item.score, item.published),
@@ -2894,6 +3143,8 @@ def select_executive_news(
         for cve in item.cves
     }
 
+    # Selection is intentionally conservative: prefer fewer distinct stories
+    # over several publishers repeating the same underlying event.
     for news_link in ordered:
         news_cves = set(extract_cves(news_link.title))
 
@@ -2936,6 +3187,8 @@ def build_sector_impacts(
     news_links: list[NewsLink],
     max_items: int = 5,
 ) -> list[SectorImpact]:
+    """Derive the strongest advisory implication for each monitored customer sector."""
+
     candidates: list[SectorImpact] = []
 
     story_records = [
@@ -2991,6 +3244,12 @@ def build_detection_opportunities(
     items: list[Item],
     max_items: int = 6,
 ) -> list[DetectionOpportunity]:
+    """Create deterministic detection opportunities from primary items.
+
+    Only one opportunity is normally selected per category to keep the SOC section
+    concise and prevent repeated generic recommendations.
+    """
+
     selected: list[DetectionOpportunity] = []
     used_categories: set[str] = set()
 
@@ -3044,6 +3303,8 @@ def build_regional_links(
     news_links: list[NewsLink],
     max_items: int = 8,
 ) -> list[NewsLink]:
+    """Select developments with specific Scandinavian or European relevance."""
+
     candidates: list[NewsLink] = []
 
     for item in items:
@@ -3106,6 +3367,8 @@ def build_regional_links(
 
 
 def csv_setting(name: str) -> tuple[str, ...]:
+    """Parse a comma-separated environment variable into unique ordered values."""
+
     raw = os.getenv(name, "")
     values: list[str] = []
     seen: set[str] = set()
@@ -3128,6 +3391,8 @@ def csv_setting(name: str) -> tuple[str, ...]:
 
 
 def ensure_utc(value: datetime) -> datetime:
+    """Return a timezone-aware datetime normalised to UTC."""
+
     if value.tzinfo is None:
         return value.replace(tzinfo=timezone.utc)
 
@@ -3135,6 +3400,8 @@ def ensure_utc(value: datetime) -> datetime:
 
 
 def exposure_severity_rank(severity: str) -> int:
+    """Convert an exposure severity label into a sortable numeric rank."""
+
     return {
         "Critical": 4,
         "High": 3,
@@ -3145,6 +3412,8 @@ def exposure_severity_rank(severity: str) -> int:
 
 
 def clean_html_text(value: str) -> str:
+    """Strip HTML markup and normalise the remaining human-readable text."""
+
     if not value:
         return ""
 
@@ -3154,6 +3423,13 @@ def clean_html_text(value: str) -> str:
 
 
 def fetch_hibp_breaches(cutoff: datetime) -> list[ExposureSignal]:
+    """Collect newly added public breach metadata from Have I Been Pwned.
+
+    The function excludes spam lists and retired records, classifies credential or
+    stealer exposure separately from general breaches, and never requests account-
+    level data.
+    """
+
     response = requests.get(
         HIBP_BREACHES_API,
         timeout=45,
@@ -3171,6 +3447,8 @@ def fetch_hibp_breaches(cutoff: datetime) -> list[ExposureSignal]:
 
     signals: list[ExposureSignal] = []
 
+    # The public HIBP catalogue contains organisation-level breach metadata,
+    # not the compromised account records themselves.
     for entry in payload:
         if not isinstance(entry, dict):
             continue
@@ -3214,6 +3492,8 @@ def fetch_hibp_breaches(cutoff: datetime) -> list[ExposureSignal]:
         is_malware = bool(entry.get("IsMalware"))
         sensitive = bool(class_set & SENSITIVE_DATA_CLASSES)
 
+        # Malware-sourced or authentication-related data warrants credential
+        # response guidance even when the underlying breach is older.
         if is_stealer or is_malware or sensitive:
             signal_type = "Credential Exposure and Stealer Logs"
             severity = "High"
@@ -3291,11 +3571,20 @@ def fetch_hibp_domain_exposure(
     domains: tuple[str, ...],
     api_key: str,
 ) -> list[ExposureSignal]:
+    """Query HIBP for authorised, verified-domain breach exposure.
+
+    Only aggregate counts and breach names are returned to the report. Individual
+    email aliases are deliberately excluded to reduce unnecessary personal-data
+    handling. This endpoint requires an HIBP API key and verified domain control.
+    """
+
     if not domains or not api_key:
         return []
 
     signals: list[ExposureSignal] = []
 
+    # HIBP requires verified control of each queried domain. Requests are
+    # intentionally serialised to respect API rate limits.
     for domain in domains:
         url = (
             f"{HIBP_BREACHED_DOMAIN_API}/"
@@ -3323,6 +3612,8 @@ def fetch_hibp_domain_exposure(
                 f"HIBP domain response for {domain} was not an object"
             )
 
+        # Reduce the response to domain-level aggregates. Individual aliases
+        # never enter the report or application logs.
         breach_names = sorted(
             {
                 clean_text(breach)
@@ -3384,6 +3675,8 @@ def matched_monitored_references(
     monitored_brands: tuple[str, ...],
     monitored_domains: tuple[str, ...],
 ) -> list[str]:
+    """Return configured brands or domains mentioned in supplied text."""
+
     lowered = combined.lower()
     matches: list[str] = []
 
@@ -3401,6 +3694,13 @@ def build_open_source_exposure_signals(
     monitored_domains: tuple[str, ...],
     max_items: int = 18,
 ) -> list[ExposureSignal]:
+    """Derive exposure signals from collected primary and news records.
+
+    Deterministic rules identify ransomware, credential, breach, access-market and
+    brand-abuse language. Matches to monitored brands or domains receive a strong
+    relevance increase but remain labelled according to source confidence.
+    """
+
     records = [
         (
             item.title,
@@ -3428,6 +3728,8 @@ def build_open_source_exposure_signals(
 
     signals: list[ExposureSignal] = []
 
+    # Primary and secondary reporting share the same exposure taxonomy, but
+    # their confidence labels remain different in the final advisory.
     for (
         title,
         summary,
@@ -3466,6 +3768,8 @@ def build_open_source_exposure_signals(
                 16,
             )
 
+                # Direct references to configured organisations or domains are
+            # promoted strongly, but the confidence value is not upgraded.
             if matches:
                 candidate_score += 35
 
@@ -3526,6 +3830,10 @@ def deduplicate_exposure_signals(
     signals: list[ExposureSignal],
     max_items: int,
 ) -> list[ExposureSignal]:
+    """Sort, deduplicate and limit exposure signals for the final report."""
+
+    # Severity takes precedence over the raw score so a verified critical
+    # exposure cannot be displaced by a large volume of low-impact reporting.
     ordered = sorted(
         signals,
         key=lambda signal: (
@@ -3563,6 +3871,8 @@ def deduplicate_exposure_signals(
 def group_exposure_signals(
     signals: list[ExposureSignal],
 ) -> dict[str, list[ExposureSignal]]:
+    """Group exposure signals into the configured dark-web report sections."""
+
     grouped = {
         section: []
         for section in EXPOSURE_SECTION_ORDER
@@ -3578,9 +3888,17 @@ def advisory_status(
     items: list[Item],
     exposure_signals: list[ExposureSignal],
 ) -> dict[str, Any]:
+    """Calculate the customer-facing Security Advisory Level.
+
+    The result begins with the enterprise DEFCON-style assessment and escalates it
+    when exposure signals indicate critical, high or elevated external risk.
+    """
+
     base = defcon_status(items)
     level = int(base["level"])
 
+    # Exposure intelligence can only escalate the enterprise-derived baseline;
+    # it never lowers the broader cyber threat assessment.
     if any(
         signal.severity == "Critical"
         for signal in exposure_signals
@@ -3612,6 +3930,8 @@ def advisory_actions(
     items: list[Item],
     signals: list[ExposureSignal],
 ) -> list[str]:
+    """Build the highest-priority response actions for the executive advisory."""
+
     actions: list[str] = []
 
     signal_types = {signal.signal_type for signal in signals}
@@ -3652,6 +3972,12 @@ def advisory_actions(
 
 
 def fetch_kev(lookback_days: int) -> list[Item]:
+    """Collect recent entries from the CISA Known Exploited Vulnerabilities catalogue.
+
+    Each KEV record is converted directly into a high-priority item with CISA's
+    required action, remediation deadline and ransomware-use flag.
+    """
+
     request = Request(
         CISA_KEV_FEED,
         headers={
@@ -3669,6 +3995,8 @@ def fetch_kev(lookback_days: int) -> list[Item]:
 
     items: list[Item] = []
 
+    # CISA's dateAdded field is the reporting-window anchor; the original CVE
+    # publication date is not used for KEV inclusion.
     for entry in catalogue.get("vulnerabilities", []):
         raw_date = str(entry.get("dateAdded", "")).strip()
         if not raw_date:
@@ -3752,6 +4080,12 @@ def select_cvss_metric(cve_record: dict[str, Any]) -> tuple[
     str,
     str,
 ]:
+    """Select the preferred CVSS metric from an NVD vulnerability record.
+
+    CVSS v4 is preferred when present, followed by v3.1, v3.0 and v2. The function
+    returns score, severity and vector while tolerating incomplete NVD data.
+    """
+
     metrics = cve_record.get("metrics", {})
 
     for metric_name in (
@@ -3791,6 +4125,8 @@ def select_cvss_metric(cve_record: dict[str, Any]) -> tuple[
 
     return None, "Not available", ""
 
+
+# Priority vendors and technologies used for recent NVD fallback coverage.
 
 NVD_RECENT_COVERAGE = (
     {
@@ -3858,6 +4194,8 @@ NVD_RECENT_COVERAGE = (
 
 
 def english_nvd_description(cve_record: dict[str, Any]) -> str:
+    """Return the English NVD description for a vulnerability record."""
+
     descriptions = cve_record.get("descriptions", [])
 
     for description in descriptions:
@@ -3873,6 +4211,8 @@ def english_nvd_description(cve_record: dict[str, Any]) -> str:
 def nvd_coverage_match(
     description: str,
 ) -> tuple[str, str] | None:
+    """Match an NVD record to the configured priority-vendor coverage rules."""
+
     lowered = description.lower()
 
     for coverage in NVD_RECENT_COVERAGE:
@@ -3885,6 +4225,8 @@ def nvd_coverage_match(
 def fetch_recent_nvd_coverage(
     cutoff: datetime,
 ) -> list[Item]:
+    """Collect recent NVD CVEs matching priority vendors and technologies."""
+
     end = datetime.now(timezone.utc)
     api_key = os.getenv("NVD_API_KEY", "").strip()
 
@@ -3997,8 +4339,17 @@ def enrich_nvd(
     items: list[Item],
     warnings: list[str],
 ) -> None:
+    """Enrich collected items with NVD CVSS data and descriptions.
+
+    Requests are deduplicated by CVE and rate-limited according to whether an NVD
+    API key is available. Enrichment failures are recorded as warnings rather than
+    terminating the briefing.
+    """
+
     cve_to_items: dict[str, list[Item]] = {}
 
+    # A single NVD request is made per unique CVE, even when several sources
+    # report the same vulnerability.
     for item in items:
         for cve in item.cves:
             cve_to_items.setdefault(cve, []).append(item)
@@ -4082,6 +4433,8 @@ def load_configured_governance_events(
     days_ahead: int,
     warnings: list[str],
 ) -> list[dict[str, str]]:
+    """Load enabled future milestones from the local governance JSON file."""
+
     if not UPCOMING_GOVERNANCE_FILE.exists():
         warnings.append(
             f"Upcoming governance file not found: "
@@ -4140,9 +4493,13 @@ def detect_governance_go_live_events(
     today: date,
     days_ahead: int,
 ) -> list[dict[str, str]]:
+    """Infer near-term effective dates and deadlines from collected governance items."""
+
     end_date = today + timedelta(days=days_ahead)
     events: list[dict[str, str]] = []
 
+    # Only governance-oriented sections are scanned for future dates. This
+    # prevents ordinary vulnerability dates being misread as deadlines.
     for item in items:
         if item.section not in GOVERNANCE_SECTIONS:
             continue
@@ -4174,6 +4531,8 @@ def detect_governance_go_live_events(
 def deduplicate_governance_events(
     events: list[dict[str, str]],
 ) -> list[dict[str, str]]:
+    """Merge duplicate governance milestones and return them in date order."""
+
     unique: dict[tuple[str, str], dict[str, str]] = {}
 
     for event in events:
@@ -4196,6 +4555,13 @@ def select_final_items(
     items: list[Item],
     max_items: int,
 ) -> list[Item]:
+    """Select the final balanced set of primary intelligence items.
+
+    Zero-days, CVSS 10.0 vulnerabilities and KEV entries are mandatory. The
+    remaining capacity reserves limited representation for each report section
+    before filling by overall score.
+    """
+
     ordered = sorted(
         items,
         key=lambda item: (item.score, item.published),
@@ -4240,6 +4606,8 @@ def select_final_items(
     selected: list[Item] = []
     seen: set[str] = set()
 
+    # Mandatory critical items are inserted first, followed by section floors
+    # and finally the global score order.
     for item in mandatory + section_floor + ordered:
         key = (
             "|".join(item.cves)
@@ -4265,6 +4633,8 @@ def select_final_items(
 
 
 def deduplicate(items: Iterable[Item]) -> list[Item]:
+    """Deduplicate primary items by CVE set or canonicalised source link."""
+
     unique: dict[str, Item] = {}
 
     for item in items:
@@ -4282,6 +4652,8 @@ def deduplicate(items: Iterable[Item]) -> list[Item]:
 
 
 def priority(item: Item) -> str:
+    """Translate an item's score and exploitation attributes into a display priority."""
+
     if item.cvss_score == 10.0 or item.zero_day:
         return "Critical"
     if item.kev or item.score >= 95:
@@ -4294,6 +4666,10 @@ def priority(item: Item) -> str:
 
 
 def defcon_status(items: list[Item]) -> dict[str, Any]:
+    """Calculate the retained enterprise DEFCON-style cyber threat level."""
+
+    # The scale is an internal presentation model. It intentionally mirrors
+    # DEFCON terminology but is not related to the military DEFCON system.
     if any(
         item.cvss_score == 10.0
         and (item.zero_day or item.exploited or item.kev)
@@ -4329,6 +4705,8 @@ def defcon_status(items: list[Item]) -> dict[str, Any]:
 
 
 def immediate_actions(items: list[Item]) -> list[str]:
+    """Generate concise CISO-level actions from the current primary item set."""
+
     actions: list[str] = []
 
     if any(item.zero_day or item.cvss_score == 10.0 for item in items):
@@ -4403,6 +4781,8 @@ def immediate_actions(items: list[Item]) -> list[str]:
 
 
 def truncate(value: str, limit: int) -> str:
+    """Shorten text to a safe display length without splitting the output unnecessarily."""
+
     value = clean_text(value)
     if len(value) <= limit:
         return value
@@ -4410,6 +4790,8 @@ def truncate(value: str, limit: int) -> str:
 
 
 def render_item_text(item: Item, number: int) -> list[str]:
+    """Render one primary intelligence item for the plain-text email body."""
+
     cves = ", ".join(item.cves) or "None identified"
     cvss = (
         f"{item.cvss_score:.1f} {item.cvss_severity}"
@@ -4445,6 +4827,8 @@ def render_item_text(item: Item, number: int) -> list[str]:
 
 
 def render_item_html(item: Item) -> str:
+    """Render one primary intelligence item as a bordered HTML advisory card."""
+
     cves = ", ".join(item.cves) or "None identified"
     cvss = (
         f"{item.cvss_score:.1f} {item.cvss_severity}"
@@ -4538,6 +4922,8 @@ def render_exposure_text(
     signal: ExposureSignal,
     number: int,
 ) -> list[str]:
+    """Render one exposure signal for the plain-text email body."""
+
     return [
         "",
         f"{number}. [{signal.severity}] {signal.title}",
@@ -4556,6 +4942,8 @@ def render_exposure_text(
 
 
 def render_exposure_html(signal: ExposureSignal) -> str:
+    """Render one exposure signal as a distinct HTML exposure card."""
+
     return f"""
     <article style="
         border:1px solid #7d4e9e;
@@ -4638,9 +5026,19 @@ def render_report(
     monitored_brands: tuple[str, ...],
     monitored_domains: tuple[str, ...],
 ) -> tuple[str, str]:
+    """Render the complete plain-text and HTML Daily Security Brief.
+
+    This function assembles the dual executive perspective: a customer-facing
+    Security Advisory Level and the retained CISO-oriented enterprise threat view.
+    It then renders exposure, technical, SOC, regional and governance sections,
+    followed by source health and handling guidance.
+    """
+
     status = advisory_status(items, exposure_signals)
     enterprise_status = defcon_status(items)
     actions = advisory_actions(items, exposure_signals)
+    # Build all executive and detailed views from the same normalised records so
+    # the text and HTML variants remain semantically equivalent.
     exposure_grouped = group_exposure_signals(exposure_signals)
 
     critical_special = [
@@ -5419,6 +5817,8 @@ def render_report(
             f"<ul>{upcoming_html}</ul>"
         )
 
+    # Inline CSS is used because many email clients remove external stylesheets
+    # and reject advanced layout features.
     html_report = f"""
     <!doctype html>
     <html lang="en">
@@ -5525,6 +5925,8 @@ def send_email(
     text_body: str,
     html_body: str,
 ) -> None:
+    """Send the multipart briefing through Gmail SMTP with STARTTLS."""
+
     message = EmailMessage()
     message["From"] = username
     message["To"] = recipient
@@ -5546,6 +5948,13 @@ def send_email(
 
 
 def main() -> int:
+    """Run the complete collection, enrichment, analysis and delivery workflow.
+
+    Each external source is isolated so one failure does not stop the briefing.
+    The function records source health, builds all derived views, renders the
+    report, sends it and returns a process exit code suitable for GitHub Actions.
+    """
+
     try:
         username = required("GMAIL_USERNAME")
         password = required("GMAIL_APP_PASSWORD")
@@ -5585,6 +5994,8 @@ def main() -> int:
             f"(Europe/Oslo weekday={local_now.strftime('%A')})"
         )
 
+        # Primary intelligence and exposure signals use separate collections.
+        # This prevents unverified reporting from contaminating CVE priorities.
         collected: list[Item] = []
         exposure_candidates: list[ExposureSignal] = []
         warnings: list[str] = []
@@ -5646,6 +6057,8 @@ def main() -> int:
             )
             print(f"WARNING: {warning}", file=sys.stderr)
 
+        # Every source is isolated in its own try/except block. A broken feed is
+        # reported but does not prevent the remaining briefing from being sent.
         for source in RSS_SOURCES:
             try:
                 items = fetch_rss(source, cutoff)
@@ -5847,6 +6260,8 @@ def main() -> int:
                 )
                 print(f"WARNING: {warning}", file=sys.stderr)
 
+        # Enrichment occurs after source-level deduplication to minimise NVD API
+        # requests, but before final selection so CVSS can influence priority.
         enrich_nvd(all_items, warnings)
 
         all_items.sort(
@@ -5867,6 +6282,8 @@ def main() -> int:
             executive_news_max,
         )
 
+        # Public breach metadata and open-source reporting are merged only at the
+        # exposure layer, where confidence labels remain visible.
         exposure_candidates.extend(
             build_open_source_exposure_signals(
                 items,
@@ -5935,6 +6352,8 @@ def main() -> int:
             f"{BRIEF_NAME} v{BRIEF_VERSION}"
         )
 
+        # Email delivery is the final side effect. All collection and rendering
+        # must succeed before SMTP authentication is attempted.
         send_email(
             username,
             password,
