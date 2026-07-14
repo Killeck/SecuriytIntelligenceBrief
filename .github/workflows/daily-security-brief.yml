@@ -1,4 +1,4 @@
-name: Daily CISO security briefing
+name: Daily Security Brief v4.1
 
 on:
   schedule:
@@ -12,35 +12,37 @@ on:
         required: true
         default: "auto"
         type: string
-
       kev_lookback_days:
         description: Use auto or a number of calendar days
         required: true
         default: "auto"
         type: string
-
       max_items:
-        description: Maximum number of developments
+        description: Maximum number of primary security advisories
         required: true
         default: "40"
         type: string
-
-      executive_news_max:
-        description: Maximum number of relevant cyber-news links
+      discovery_max:
+        description: Maximum number of discovery-news links
         required: true
         default: "10"
         type: string
-      
+      exposure_max:
+        description: Maximum number of exposure and dark-web signals
+        required: true
+        default: "20"
+        type: string
+
 permissions:
   contents: read
 
 concurrency:
-  group: daily-ciso-security-brief
+  group: daily-security-brief-v4-1
   cancel-in-progress: false
 
 jobs:
-  send-combined-brief:
-    name: Generate and email briefing
+  send-advisory:
+    name: Generate and email daily security brief
     runs-on: ubuntu-latest
     timeout-minutes: 30
 
@@ -59,21 +61,24 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install --requirement requirements.txt
 
-      - name: Generate and send briefing
+      - name: Generate and send daily security brief
         env:
           GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
 
-          # Manual runs use the selected values.
-          # Scheduled runs use the fallback values.
+          # Optional dark-web and exposure monitoring.
+          HIBP_API_KEY: ${{ secrets.HIBP_API_KEY }}
+          MONITORED_DOMAINS: ${{ secrets.MONITORED_DOMAINS }}
+          MONITORED_BRANDS: ${{ secrets.MONITORED_BRANDS }}
+
           NEWS_LOOKBACK_HOURS: ${{ inputs.lookback_hours || 'auto' }}
           KEV_LOOKBACK_DAYS: ${{ inputs.kev_lookback_days || 'auto' }}
           NEWS_MAX_ITEMS: ${{ inputs.max_items || '40' }}
-          EXEC_NEWS_MAX_ITEMS: ${{ inputs.executive_news_max || '10' }}
+          EXEC_NEWS_MAX_ITEMS: ${{ inputs.discovery_max || '10' }}
+          EXPOSURE_MAX_ITEMS: ${{ inputs.exposure_max || '20' }}
           EXEC_NEWS_MIN_SCORE: "24"
-          
           UPCOMING_GOVERNANCE_DAYS: "14"
 
-        run: python src/send_combined_brief.py
+        run: python src/send_security_advisory.py
