@@ -1,4 +1,4 @@
-# SecurityIntelligenceBrief v4.1
+# SecurityIntelligenceBrief v4.2
 
 My personally customised cybersecurity intelligence briefing, designed to keep me current on significant security developments, emerging threats, external exposure and relevant governance changes.
 
