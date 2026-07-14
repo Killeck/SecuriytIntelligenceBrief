@@ -4,6 +4,7 @@ My own personal customised Security and Intelligence Brief. Designed to keep me 
 A no-LLM, no-cloud-resource-cost cybersecurity intelligence pipeline built with Python, GitHub Actions and Gmail SMTP
 
 The pipeline collects structured security information from official advisories, vendor research, standards, and governance sources, and a curated set of secondary cyber-news publications. Applying deterministic relevance scoring, deduplication, CVSS enrichment and sector filtering, then emails a daily HTML briefing. 
+See: [changelog](https://github.com/Killeck/SecuriytIntelligenceBrief/blob/main/changelog.md) for further details.
 
 ## Core behaviour
 
