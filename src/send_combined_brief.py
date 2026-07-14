@@ -25,8 +25,11 @@ from bs4 import BeautifulSoup, Tag
 from dateutil import parser as date_parser
 
 
+BRIEF_NAME = "Daily CISO Security Briefing"
+BRIEF_VERSION = "4.0"
+
 USER_AGENT = (
-    "security-intelligence-brief/1.1 "
+    f"daily-ciso-security-brief/{BRIEF_VERSION} "
     "(GitHub Actions; security news aggregation)"
 )
 
@@ -123,7 +126,7 @@ GOVERNANCE_SECTIONS = {
     "Compliance",
     "Standards",
     "GRC",
-    "Nordic Impact",
+    "Scandinavia and Europe",
 }
 
 
@@ -165,6 +168,745 @@ class Item:
     affected: str = ""
     action: str = ""
     why: str = ""
+
+
+@dataclass
+class NewsLink:
+    title: str
+    link: str
+    source: str
+    published: datetime
+    score: int
+    tags: list[str] = field(default_factory=list)
+    summary: str = ""
+
+
+@dataclass
+class SectorImpact:
+    sector: str
+    headline: str
+    implication: str
+    source: str
+    link: str
+    score: int
+
+
+@dataclass
+class DetectionOpportunity:
+    title: str
+    detection: str
+    data_sources: str
+    mitre: str
+    source: str
+    link: str
+    score: int
+
+
+EXECUTIVE_NEWS_RSS = (
+    {
+        "name": "Cyber Security News",
+        "url": "https://cybersecuritynews.com/feed/",
+        "base_score": 4,
+    },
+    {
+        "name": "The Hacker News",
+        "url": "https://feeds.feedburner.com/TheHackersNews",
+        "base_score": 8,
+    },
+    {
+        "name": "SecurityWeek",
+        "url": "https://www.securityweek.com/feed/",
+        "base_score": 11,
+    },
+    {
+        "name": "BleepingComputer",
+        "url": "https://www.bleepingcomputer.com/feed/",
+        "base_score": 12,
+    },
+)
+
+EXECUTIVE_NEWS_HTML = (
+    {
+        "name": "Reuters Cybersecurity",
+        "url": "https://www.reuters.com/technology/cybersecurity/",
+        "base_score": 14,
+        "selectors": (
+            "main a[href*='/technology/']",
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        "include": ("reuters.com",),
+        "exclude": (
+            "/video/",
+            "/pictures/",
+            "/graphics/",
+            "/legal/",
+        ),
+    },
+    {
+        "name": "The Record",
+        "url": "https://therecord.media/",
+        "base_score": 12,
+        "selectors": (
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        "include": ("therecord.media",),
+        "exclude": (
+            "/tag/",
+            "/author/",
+            "/category/",
+        ),
+    },
+    {
+        "name": "Cybersecurity Dive",
+        "url": "https://www.cybersecuritydive.com/",
+        "base_score": 10,
+        "selectors": (
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "h2 a[href]",
+            "h3 a[href]",
+        ),
+        "include": ("cybersecuritydive.com",),
+        "exclude": (
+            "/press-release/",
+            "/library/",
+            "/events/",
+            "resources.industrydive.com",
+            "sponsored",
+        ),
+    },
+    {
+        "name": "Dark Reading",
+        "url": "https://www.darkreading.com/",
+        "base_score": 8,
+        "selectors": (
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        "include": ("darkreading.com",),
+        "exclude": (
+            "/webinars/",
+            "/resources/",
+            "/whitepapers/",
+            "sponsored",
+            "partner",
+        ),
+    },
+    {
+        "name": "BankInfoSecurity",
+        "url": "https://www.bankinfosecurity.com/",
+        "base_score": 9,
+        "selectors": (
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        "include": ("bankinfosecurity.com",),
+        "exclude": (
+            "/webinars/",
+            "/whitepapers/",
+            "/events/",
+            "/interviews/",
+        ),
+    },
+    {
+        "name": "SC World",
+        "url": "https://www.scworld.com/",
+        "base_score": 6,
+        "selectors": (
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        "include": ("scworld.com",),
+        "exclude": (
+            "/resource/",
+            "/events/",
+            "/sponsored/",
+        ),
+    },
+    {
+        "name": "Industrial Cyber",
+        "url": "https://industrialcyber.co/",
+        "base_score": 12,
+        "selectors": (
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        "include": ("industrialcyber.co",),
+        "exclude": (
+            "/events/",
+            "/webinars/",
+            "/sponsored/",
+        ),
+    },
+)
+
+EXECUTIVE_NEWS_SOURCE_LIMITS = {
+    "Reuters Cybersecurity": 2,
+    "SecurityWeek": 2,
+    "BleepingComputer": 2,
+    "The Record": 2,
+    "The Hacker News": 2,
+    "Cybersecurity Dive": 1,
+    "Cyber Security News": 1,
+    "Dark Reading": 1,
+    "BankInfoSecurity": 1,
+    "SC World": 1,
+    "Industrial Cyber": 2,
+}
+
+
+RELEVANCE_RULES = (
+    (
+        "Azure/Microsoft",
+        (
+            "azure",
+            "microsoft 365",
+            "office 365",
+            "entra",
+            "defender",
+            "sentinel",
+            "active directory",
+            "sharepoint",
+            "exchange online",
+            "windows server",
+            "microsoft",
+        ),
+        40,
+    ),
+    (
+        "Fortinet",
+        (
+            "fortinet",
+            "fortigate",
+            "fortios",
+            "fortimanager",
+            "fortianalyzer",
+            "forticlient",
+            "fortiedr",
+            "fortisiem",
+            "fortiweb",
+            "fortimail",
+            "fortinac",
+            "fortiauthenticator",
+            "fortisandbox",
+        ),
+        42,
+    ),
+    (
+        "HPE/Aruba",
+        (
+            "hewlett packard enterprise",
+            "hpe ",
+            "hpe aruba",
+            "aruba networks",
+            "aruba central",
+            "arubaos",
+            "proliant",
+            "oneview",
+        ),
+        38,
+    ),
+    (
+        "SOC/Security Operations",
+        (
+            "security operations",
+            "soc ",
+            " siem",
+            "xdr",
+            "mdr",
+            "edr",
+            "detection engineering",
+            "threat hunting",
+            "incident response",
+            "security monitoring",
+            "log management",
+            "soar",
+        ),
+        28,
+    ),
+    (
+        "Identity",
+        (
+            "identity security",
+            "authentication",
+            "mfa",
+            "oauth",
+            "token theft",
+            "session theft",
+            "phishing-as-a-service",
+            "aitm",
+            "credential",
+            "privileged access",
+            "kerberos",
+        ),
+        24,
+    ),
+    (
+        "Cloud",
+        (
+            "cloud security",
+            "aws",
+            "google cloud",
+            "kubernetes",
+            "container",
+            "docker",
+            "terraform",
+            "cloud-native",
+            "saas",
+        ),
+        22,
+    ),
+    (
+        "Nordics",
+        (
+            "norway",
+            "norwegian",
+            "sweden",
+            "swedish",
+            "denmark",
+            "danish",
+            "finland",
+            "finnish",
+            "nordic",
+            "scandinavia",
+            "scandinavian",
+            "iceland",
+        ),
+        30,
+    ),
+    (
+        "Europe",
+        (
+            "europe",
+            "european",
+            "european union",
+            " eu ",
+            "eea",
+            "enisa",
+            "nis2",
+            "dora",
+            "gdpr",
+        ),
+        22,
+    ),
+    (
+        "Energy/Oil & Gas",
+        (
+            "oil and gas",
+            "oil & gas",
+            "offshore",
+            "energy sector",
+            "power grid",
+            "utility",
+            "utilities",
+            "electricity",
+            "pipeline",
+            "industrial control",
+            "operational technology",
+            " ot ",
+            "ics",
+            "scada",
+            "critical infrastructure",
+        ),
+        32,
+    ),
+    (
+        "Public/Regulated",
+        (
+            "government",
+            "public sector",
+            "municipality",
+            "municipal",
+            "healthcare",
+            "hospital",
+            "finance",
+            "banking",
+            "insurance",
+            "education",
+            "university",
+            "research",
+            "transport",
+            "rail",
+            "airport",
+            "maritime",
+            "shipping",
+        ),
+        22,
+    ),
+    (
+        "Retail/Hospitality/Property",
+        (
+            "retail",
+            "retailer",
+            "point of sale",
+            "pos system",
+            "e-commerce",
+            "webshop",
+            "hospitality",
+            "hotel",
+            "travel",
+            "restaurant",
+            "property",
+            "real estate",
+            "housing",
+            "construction",
+        ),
+        24,
+    ),
+    (
+        "Service Providers",
+        (
+            "managed service provider",
+            "msp",
+            "managed security",
+            "telecom",
+            "network provider",
+            "hosting provider",
+            "data center",
+            "datacenter",
+        ),
+        20,
+    ),
+    (
+        "High Impact",
+        (
+            "zero-day",
+            "zero day",
+            "actively exploited",
+            "exploited in the wild",
+            "ransomware",
+            "data breach",
+            "supply chain",
+            "nation-state",
+            "state-sponsored",
+            "critical vulnerability",
+            "remote code execution",
+            "authentication bypass",
+        ),
+        18,
+    ),
+)
+
+EXECUTIVE_NEWS_EXCLUDE = (
+    "webinar",
+    "sponsored",
+    "advertorial",
+    "partner content",
+    "weekly recap",
+    "newsletter",
+    "podcast",
+    "award",
+    "funding round",
+    "market report",
+    "buyers guide",
+    "best tools",
+    "top 10 tools",
+    "penetration testing framework",
+)
+
+SECTOR_IMPACT_RULES = (
+    (
+        "Oil, Gas and Energy",
+        (
+            "oil and gas",
+            "oil & gas",
+            "offshore",
+            "energy sector",
+            "utility",
+            "utilities",
+            "power grid",
+            "electricity",
+            "pipeline",
+            "industrial control",
+            "operational technology",
+            "scada",
+            "critical infrastructure",
+        ),
+        (
+            "Review OT exposure, remote vendor access, operational continuity "
+            "and supplier dependencies."
+        ),
+        35,
+    ),
+    (
+        "Retail and E-commerce",
+        (
+            "retail",
+            "retailer",
+            "point of sale",
+            "pos system",
+            "payment card",
+            "e-commerce",
+            "ecommerce",
+            "webshop",
+            "merchant",
+        ),
+        (
+            "Assess payment, identity, outsourced IT and distributed endpoint "
+            "exposure."
+        ),
+        28,
+    ),
+    (
+        "Hospitality and Travel",
+        (
+            "hospitality",
+            "hotel",
+            "travel",
+            "booking",
+            "restaurant",
+            "airline",
+            "tourism",
+            "guest data",
+        ),
+        (
+            "Review payment systems, guest data, third-party booking services "
+            "and identity controls."
+        ),
+        28,
+    ),
+    (
+        "Public Sector and Municipalities",
+        (
+            "public sector",
+            "government",
+            "municipality",
+            "municipal",
+            "local authority",
+            "public administration",
+        ),
+        (
+            "Assess service continuity, citizen data, supplier access and "
+            "regulatory reporting obligations."
+        ),
+        26,
+    ),
+    (
+        "Healthcare",
+        (
+            "healthcare",
+            " hospital ",
+            "patient",
+            "medical",
+            "health service",
+            "clinical",
+        ),
+        (
+            "Review patient-data exposure, clinical availability and "
+            "third-party technology dependencies."
+        ),
+        27,
+    ),
+    (
+        "Finance and Insurance",
+        (
+            "bank",
+            "banking",
+            "finance",
+            "financial",
+            "insurance",
+            "payment",
+            "fintech",
+            "dora",
+        ),
+        (
+            "Assess identity, fraud, payment, resilience and regulatory "
+            "reporting impact."
+        ),
+        27,
+    ),
+    (
+        "Research and Education",
+        (
+            "research",
+            "university",
+            "college",
+            "education",
+            "school",
+            "academic",
+        ),
+        (
+            "Review identity sprawl, research-data exposure, open networks and "
+            "third-party collaboration risks."
+        ),
+        22,
+    ),
+    (
+        "Transport and Maritime",
+        (
+            "transport",
+            "rail",
+            "railway",
+            "airport",
+            "aviation",
+            "maritime",
+            "shipping",
+            "port",
+            "logistics",
+        ),
+        (
+            "Assess operational availability, remote access, OT integration and "
+            "supply-chain dependencies."
+        ),
+        26,
+    ),
+    (
+        "Property, Housing and Construction",
+        (
+            "property",
+            "real estate",
+            "housing",
+            "construction",
+            "building management",
+            "smart building",
+        ),
+        (
+            "Review shared-service dependencies, building systems, tenant data "
+            "and supplier access."
+        ),
+        22,
+    ),
+    (
+        "Managed Services, Telecom and Hosting",
+        (
+            "managed service provider",
+            "msp",
+            "managed security",
+            "telecom",
+            "network provider",
+            "hosting provider",
+            "data center",
+            "datacenter",
+        ),
+        (
+            "Assess multi-tenant blast radius, privileged access, remote "
+            "management and downstream customer exposure."
+        ),
+        30,
+    ),
+)
+
+DETECTION_TEMPLATES = {
+    "Identity security": (
+        "Detect abnormal sign-ins, OAuth consent, token use, session reuse and "
+        "privileged role changes.",
+        (
+            "Entra SigninLogs, AuditLogs, service-principal sign-ins, identity "
+            "provider logs and endpoint telemetry"
+        ),
+        "T1078 Valid Accounts; T1528 Steal Application Access Token",
+    ),
+    "Active exploitation": (
+        "Monitor internet-facing services for exploit chains, unexpected child "
+        "processes, web shells, new accounts and configuration changes.",
+        (
+            "WAF, firewall, VPN, web server, EDR, process creation and "
+            "authentication logs"
+        ),
+        "T1190 Exploit Public-Facing Application; T1505.003 Web Shell",
+    ),
+    "Critical vulnerability": (
+        "Correlate vulnerable asset exposure with exploit attempts, process "
+        "anomalies and post-exploitation activity.",
+        (
+            "Vulnerability inventory, external exposure, WAF, EDR, NDR and "
+            "system logs"
+        ),
+        "T1190 Exploit Public-Facing Application",
+    ),
+    "Ransomware": (
+        "Detect rapid credential access, lateral movement, security-control "
+        "tampering, mass file modification and backup interference.",
+        (
+            "EDR, Windows security events, identity logs, file telemetry, "
+            "backup and hypervisor logs"
+        ),
+        (
+            "T1486 Data Encrypted for Impact; T1562.001 Impair Defenses; "
+            "T1021 Remote Services"
+        ),
+    ),
+    "Cloud security": (
+        "Monitor anomalous role assignments, access-key creation, policy "
+        "changes, public exposure and unusual control-plane access.",
+        (
+            "Azure Activity Logs, AWS CloudTrail, Google Cloud Audit Logs and "
+            "cloud posture telemetry"
+        ),
+        "T1098 Account Manipulation; T1078 Valid Accounts",
+    ),
+    "Supply-chain security": (
+        "Detect unexpected build changes, dependency additions, workflow "
+        "modification, secret access and unsigned artefacts.",
+        (
+            "GitHub/GitLab audit logs, CI/CD logs, package-manager logs, secret "
+            "stores and artefact registries"
+        ),
+        "T1195 Supply Chain Compromise",
+    ),
+    "Nation-state activity": (
+        "Map published infrastructure and techniques to telemetry, then hunt "
+        "for rare destinations, long-lived access and credential abuse.",
+        "DNS, proxy, NDR, EDR, identity, email and cloud logs",
+        "T1583 Acquire Infrastructure; T1071 Application Layer Protocol",
+    ),
+    "OT and ICS security": (
+        "Monitor new remote sessions, engineering-tool use, controller changes "
+        "and unexpected industrial-protocol activity.",
+        (
+            "OT network monitoring, jump-host logs, VPN, engineering "
+            "workstations, historians and controller audit trails"
+        ),
+        "T0886 Remote Services; T0831 Manipulation of Control",
+    ),
+    "Threat intelligence": (
+        "Translate published IOCs and TTPs into targeted searches and validate "
+        "coverage across endpoint, network, identity and cloud telemetry.",
+        "SIEM, EDR, NDR, DNS, proxy, email and cloud logs",
+        "Use source-specific MITRE ATT&CK mappings",
+    ),
+    "General security": (
+        "Review the linked research for concrete IOCs, behaviours and logging "
+        "requirements, then create a targeted hunt.",
+        "Relevant SIEM, endpoint, network, identity and cloud telemetry",
+        "Use source-specific MITRE ATT&CK mappings",
+    ),
+}
+
+REGIONAL_TERMS = (
+    "norway",
+    "norwegian",
+    "sweden",
+    "swedish",
+    "denmark",
+    "danish",
+    "finland",
+    "finnish",
+    "iceland",
+    "nordic",
+    "scandinavia",
+    "scandinavian",
+    "europe",
+    "european",
+    "european union",
+    " eu ",
+    "eea",
+    "enisa",
+    "nis2",
+    "dora",
+    "nsm",
+    "nkom",
+    "cert-eu",
+    "sikkerhetsloven",
+)
 
 
 RSS_SOURCES = (
@@ -222,6 +964,22 @@ RSS_SOURCES = (
         source_type="rss",
         base_score=24,
         section="Threat Intelligence",
+    ),
+    Source(
+        name="The DFIR Report",
+        vendor="The DFIR Report",
+        url="https://thedfirreport.com/feed/",
+        source_type="rss",
+        base_score=30,
+        section="SOC and Detection Engineering",
+    ),
+    Source(
+        name="SigmaHQ Releases",
+        vendor="SigmaHQ",
+        url="https://github.com/SigmaHQ/sigma/releases.atom",
+        source_type="rss",
+        base_score=22,
+        section="SOC and Detection Engineering",
     ),
 )
 
@@ -481,6 +1239,127 @@ HTML_SOURCES = (
             "energy management",
             "process assessment",
         ),
+    ),
+    Source(
+        name="Elastic Security Labs",
+        vendor="Elastic",
+        url="https://www.elastic.co/security-labs",
+        source_type="html",
+        base_score=28,
+        section="SOC and Detection Engineering",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        include_patterns=("elastic.co/security-labs",),
+        exclude_patterns=(
+            "/about/",
+            "/careers/",
+            "/contact/",
+        ),
+        max_candidates=35,
+    ),
+    Source(
+        name="Splunk Security Blog",
+        vendor="Splunk",
+        url="https://www.splunk.com/en_us/blog/security.html",
+        source_type="html",
+        base_score=25,
+        section="SOC and Detection Engineering",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        include_patterns=("splunk.com",),
+        exclude_patterns=(
+            "/events/",
+            "/conf",
+            "/customer-stories/",
+            "webinar",
+        ),
+        max_candidates=35,
+    ),
+    Source(
+        name="CISA ICS Advisories",
+        vendor="CISA",
+        url="https://www.cisa.gov/news-events/ics-advisories",
+        source_type="html",
+        base_score=42,
+        section="OT, Energy and Oil & Gas",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+            "main a[href*='/news-events/ics-advisories/']",
+        ),
+        include_patterns=("/news-events/ics-advisories/",),
+        exclude_patterns=(
+            "/ics-advisories$",
+            "#",
+        ),
+        max_candidates=60,
+    ),
+    Source(
+        name="Dragos",
+        vendor="Dragos",
+        url="https://www.dragos.com/blog/",
+        source_type="html",
+        base_score=34,
+        section="OT, Energy and Oil & Gas",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        include_patterns=("dragos.com/blog",),
+        exclude_patterns=(
+            "/events/",
+            "/resources/",
+            "webinar",
+        ),
+        max_candidates=40,
+    ),
+    Source(
+        name="Claroty Team82",
+        vendor="Claroty",
+        url="https://claroty.com/team82/research",
+        source_type="html",
+        base_score=34,
+        section="OT, Energy and Oil & Gas",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        include_patterns=("claroty.com",),
+        exclude_patterns=(
+            "/events/",
+            "/webinars/",
+            "/resources/",
+        ),
+        max_candidates=40,
+    ),
+    Source(
+        name="Nozomi Networks Labs",
+        vendor="Nozomi Networks",
+        url="https://www.nozominetworks.com/blog",
+        source_type="html",
+        base_score=32,
+        section="OT, Energy and Oil & Gas",
+        selectors=(
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "article a[href]",
+        ),
+        include_patterns=("nozominetworks.com/blog",),
+        exclude_patterns=(
+            "/events/",
+            "/webinars/",
+            "/resources/",
+        ),
+        max_candidates=40,
     ),
     Source(
         name="NSM Security Warnings",
@@ -1097,6 +1976,7 @@ def classify(text: str, source: Source) -> tuple[str, int]:
     if source.section in {
         "Fortinet",
         "HPE",
+        "HPE and Aruba",
         "Other Vendor Advisories",
     }:
         if source.vendor == "Apple":
@@ -1126,10 +2006,16 @@ def route_section(category: str, source: Source) -> str:
         return "Fortinet"
 
     if source.vendor == "HPE":
-        return "HPE"
+        return "HPE and Aruba"
 
     if source.vendor == "Microsoft":
-        return "Microsoft"
+        return "Microsoft, Azure and Identity"
+
+    if source.section == "SOC and Detection Engineering":
+        return "SOC and Detection Engineering"
+
+    if source.section == "OT, Energy and Oil & Gas":
+        return "OT, Energy and Oil & Gas"
 
     if category == "Regulatory and compliance":
         return "Compliance"
@@ -1139,6 +2025,9 @@ def route_section(category: str, source: Source) -> str:
 
     if source.section == "Norwegian Security Governance":
         return "Norwegian Security Governance"
+
+    if source.section == "Nordic Impact":
+        return "Scandinavia and Europe"
 
     if category == "Governance risk and assurance":
         return "GRC"
@@ -1475,6 +2364,493 @@ def fetch_html(source: Source, cutoff: datetime) -> list[Item]:
     return items
 
 
+def executive_news_relevance(
+    title: str,
+    summary: str,
+    base_score: int,
+) -> tuple[int, list[str]]:
+    combined = f" {clean_text(title)} {clean_text(summary)} ".lower()
+
+    if any(term in combined for term in EXECUTIVE_NEWS_EXCLUDE):
+        return -100, []
+
+    score = base_score
+    tags: list[str] = []
+
+    for tag, terms, weight in RELEVANCE_RULES:
+        if any(term in combined for term in terms):
+            score += weight
+            tags.append(tag)
+
+    if extract_cves(combined):
+        score += 8
+
+    return score, tags
+
+
+def build_news_link(
+    *,
+    source: str,
+    base_score: int,
+    title: str,
+    summary: str,
+    link: str,
+    published: datetime,
+    cutoff: datetime,
+) -> NewsLink | None:
+    title = clean_text(title)
+    summary = clean_text(summary)
+
+    if not title or not link or published < cutoff:
+        return None
+
+    score, tags = executive_news_relevance(
+        title,
+        summary,
+        base_score,
+    )
+
+    minimum_score = integer_setting(
+        "EXEC_NEWS_MIN_SCORE",
+        default=24,
+        minimum=0,
+        maximum=200,
+    )
+
+    if score < minimum_score:
+        return None
+
+    return NewsLink(
+        title=title,
+        link=link,
+        source=source,
+        published=published,
+        score=score,
+        tags=tags[:4],
+        summary=summary,
+    )
+
+
+def fetch_executive_news_rss(
+    source: dict[str, Any],
+    cutoff: datetime,
+) -> list[NewsLink]:
+    request = Request(
+        source["url"],
+        headers={
+            "User-Agent": USER_AGENT,
+            "Accept": (
+                "application/rss+xml, application/atom+xml, "
+                "application/xml, text/xml, */*"
+            ),
+        },
+    )
+
+    with urlopen(request, timeout=45) as response:
+        payload = response.read()
+
+    feed = feedparser.parse(payload)
+
+    if not feed.entries:
+        details = clean_text(getattr(feed, "bozo_exception", ""))
+        raise RuntimeError(
+            "Feed returned no entries"
+            + (f": {details}" if details else "")
+        )
+
+    links: list[NewsLink] = []
+
+    for entry in feed.entries:
+        published = feed_entry_time(entry)
+
+        if published is None:
+            continue
+
+        news_link = build_news_link(
+            source=source["name"],
+            base_score=source["base_score"],
+            title=entry.get("title", ""),
+            summary=(
+                entry.get("summary")
+                or entry.get("description")
+                or entry.get("subtitle")
+                or ""
+            ),
+            link=str(entry.get("link", "")).strip(),
+            published=published,
+            cutoff=cutoff,
+        )
+
+        if news_link:
+            links.append(news_link)
+
+    return links
+
+
+def fetch_executive_news_html(
+    source: dict[str, Any],
+    cutoff: datetime,
+) -> list[NewsLink]:
+    response = requests.get(
+        source["url"],
+        timeout=45,
+        headers={"User-Agent": USER_AGENT},
+    )
+    response.raise_for_status()
+
+    soup = BeautifulSoup(response.text, "html.parser")
+    links: list[NewsLink] = []
+    seen: set[str] = set()
+
+    for selector in source["selectors"]:
+        for node in soup.select(selector):
+            if not isinstance(node, Tag):
+                continue
+
+            anchor = node if node.name == "a" else node.find("a", href=True)
+
+            if not isinstance(anchor, Tag):
+                continue
+
+            href = str(anchor.get("href", "")).strip()
+            title = clean_text(anchor.get_text(" ", strip=True))
+
+            if not href or len(title) < 12:
+                continue
+
+            link = absolute_url(source["url"], href)
+            lowered = link.lower()
+
+            if link in seen:
+                continue
+
+            if source.get("include") and not any(
+                value.lower() in lowered
+                for value in source["include"]
+            ):
+                continue
+
+            if any(
+                value.lower() in lowered
+                for value in source.get("exclude", ())
+            ):
+                continue
+
+            container = candidate_container(anchor)
+            container_text = clean_text(
+                container.get_text(" ", strip=True)
+            )
+            published = parse_date_text(container_text)
+            summary = ""
+
+            for paragraph in container.find_all("p", limit=3):
+                candidate = clean_text(
+                    paragraph.get_text(" ", strip=True)
+                )
+                if candidate and candidate != title:
+                    summary = candidate
+                    break
+
+            if published is None:
+                try:
+                    detail_date, detail_summary = extract_page_metadata(link)
+                    published = detail_date
+                    summary = summary or detail_summary
+                    time.sleep(0.1)
+                except requests.RequestException:
+                    continue
+
+            if published is None:
+                continue
+
+            news_link = build_news_link(
+                source=source["name"],
+                base_score=source["base_score"],
+                title=title,
+                summary=summary,
+                link=link,
+                published=published,
+                cutoff=cutoff,
+            )
+
+            if news_link:
+                links.append(news_link)
+
+            seen.add(link)
+
+    return links
+
+
+def news_title_tokens(title: str) -> set[str]:
+    ignored = {
+        "the",
+        "and",
+        "for",
+        "with",
+        "from",
+        "that",
+        "this",
+        "after",
+        "into",
+        "over",
+        "new",
+        "cyber",
+        "security",
+        "attack",
+        "attacks",
+        "hackers",
+    }
+
+    return {
+        token
+        for token in re.findall(r"[a-z0-9]+", title.lower())
+        if len(token) > 2 and token not in ignored
+    }
+
+
+def news_similarity(first: str, second: str) -> float:
+    first_tokens = news_title_tokens(first)
+    second_tokens = news_title_tokens(second)
+
+    if not first_tokens or not second_tokens:
+        return 0.0
+
+    return len(first_tokens & second_tokens) / len(
+        first_tokens | second_tokens
+    )
+
+
+def select_executive_news(
+    links: list[NewsLink],
+    primary_items: list[Item],
+    max_items: int,
+) -> list[NewsLink]:
+    ordered = sorted(
+        links,
+        key=lambda item: (item.score, item.published),
+        reverse=True,
+    )
+
+    selected: list[NewsLink] = []
+    source_counts: dict[str, int] = {}
+    primary_titles = [item.title for item in primary_items]
+    primary_cves = {
+        cve
+        for item in primary_items
+        for cve in item.cves
+    }
+
+    for news_link in ordered:
+        news_cves = set(extract_cves(news_link.title))
+
+        if news_cves and news_cves <= primary_cves:
+            continue
+
+        if any(
+            news_similarity(news_link.title, title) >= 0.68
+            for title in primary_titles
+        ):
+            continue
+
+        if any(
+            news_similarity(news_link.title, existing.title) >= 0.68
+            for existing in selected
+        ):
+            continue
+
+        source_limit = EXECUTIVE_NEWS_SOURCE_LIMITS.get(
+            news_link.source,
+            2,
+        )
+
+        if source_counts.get(news_link.source, 0) >= source_limit:
+            continue
+
+        selected.append(news_link)
+        source_counts[news_link.source] = (
+            source_counts.get(news_link.source, 0) + 1
+        )
+
+        if len(selected) >= max_items:
+            break
+
+    return selected
+
+
+def build_sector_impacts(
+    items: list[Item],
+    news_links: list[NewsLink],
+    max_items: int = 5,
+) -> list[SectorImpact]:
+    candidates: list[SectorImpact] = []
+
+    story_records = [
+        (
+            item.title,
+            item.summary,
+            item.source,
+            item.link,
+            item.score,
+        )
+        for item in items
+    ]
+    story_records.extend(
+        (
+            link.title,
+            link.summary,
+            link.source,
+            link.link,
+            link.score,
+        )
+        for link in news_links
+    )
+
+    for sector, keywords, implication, weight in SECTOR_IMPACT_RULES:
+        best: SectorImpact | None = None
+
+        for title, summary, source, link, score in story_records:
+            combined = f" {title} {summary} ".lower()
+
+            if not any(keyword in combined for keyword in keywords):
+                continue
+
+            candidate = SectorImpact(
+                sector=sector,
+                headline=title,
+                implication=implication,
+                source=source,
+                link=link,
+                score=score + weight,
+            )
+
+            if best is None or candidate.score > best.score:
+                best = candidate
+
+        if best is not None:
+            candidates.append(best)
+
+    candidates.sort(key=lambda item: item.score, reverse=True)
+    return candidates[:max_items]
+
+
+def build_detection_opportunities(
+    items: list[Item],
+    max_items: int = 6,
+) -> list[DetectionOpportunity]:
+    selected: list[DetectionOpportunity] = []
+    used_categories: set[str] = set()
+
+    ordered = sorted(
+        items,
+        key=lambda item: (item.score, item.published),
+        reverse=True,
+    )
+
+    for item in ordered:
+        category = item.category
+
+        if item.section == "OT, Energy and Oil & Gas":
+            category = "OT and ICS security"
+        elif (
+            item.section == "SOC and Detection Engineering"
+            and category == "General security"
+        ):
+            category = "Threat intelligence"
+
+        if category in used_categories:
+            continue
+
+        template = DETECTION_TEMPLATES.get(category)
+
+        if template is None:
+            continue
+
+        detection, data_sources, mitre = template
+        selected.append(
+            DetectionOpportunity(
+                title=item.title,
+                detection=detection,
+                data_sources=data_sources,
+                mitre=mitre,
+                source=item.source,
+                link=item.link,
+                score=item.score,
+            )
+        )
+        used_categories.add(category)
+
+        if len(selected) >= max_items:
+            break
+
+    return selected
+
+
+def build_regional_links(
+    items: list[Item],
+    news_links: list[NewsLink],
+    max_items: int = 8,
+) -> list[NewsLink]:
+    candidates: list[NewsLink] = []
+
+    for item in items:
+        combined = f" {item.title} {item.summary} ".lower()
+
+        if (
+            item.section
+            in {
+                "Norwegian Security Governance",
+                "Scandinavia and Europe",
+                "Compliance",
+            }
+            or any(term in combined for term in REGIONAL_TERMS)
+        ):
+            candidates.append(
+                NewsLink(
+                    title=item.title,
+                    link=item.link,
+                    source=item.source,
+                    published=item.published,
+                    score=item.score + 20,
+                    tags=["Scandinavia/Europe"],
+                    summary=item.summary,
+                )
+            )
+
+    for news_link in news_links:
+        combined = f" {news_link.title} {news_link.summary} ".lower()
+
+        if (
+            any(
+                tag in {"Nordics", "Europe"}
+                for tag in news_link.tags
+            )
+            or any(term in combined for term in REGIONAL_TERMS)
+        ):
+            candidates.append(news_link)
+
+    ordered = sorted(
+        candidates,
+        key=lambda item: (item.score, item.published),
+        reverse=True,
+    )
+
+    selected: list[NewsLink] = []
+
+    for candidate in ordered:
+        if any(
+            news_similarity(candidate.title, existing.title) >= 0.68
+            for existing in selected
+        ):
+            continue
+
+        selected.append(candidate)
+
+        if len(selected) >= max_items:
+            break
+
+    return selected
+
+
 def fetch_kev(lookback_days: int) -> list[Item]:
     request = Request(
         CISA_KEV_FEED,
@@ -1635,7 +3011,7 @@ NVD_RECENT_COVERAGE = (
     },
     {
         "vendor": "HPE",
-        "section": "HPE",
+        "section": "HPE and Aruba",
         "terms": (
             "hewlett packard enterprise",
             "hpe ",
@@ -1649,7 +3025,7 @@ NVD_RECENT_COVERAGE = (
     },
     {
         "vendor": "Microsoft / cloud identity",
-        "section": "Cloud and Identity",
+        "section": "Microsoft, Azure and Identity",
         "terms": (
             "microsoft azure",
             "azure ",
@@ -2036,18 +3412,20 @@ def select_final_items(
 
     section_order = (
         "Known Exploited Vulnerabilities",
-        "Microsoft",
+        "Microsoft, Azure and Identity",
         "Fortinet",
-        "HPE",
+        "HPE and Aruba",
         "Other Vendor Advisories",
         "Cloud and Identity",
+        "SOC and Detection Engineering",
         "Threat Intelligence",
         "Vulnerability Research",
+        "OT, Energy and Oil & Gas",
+        "Scandinavia and Europe",
         "Norwegian Security Governance",
         "Compliance",
         "Standards",
         "GRC",
-        "Nordic Impact",
     )
 
     section_floor: list[Item] = []
@@ -2176,13 +3554,13 @@ def immediate_actions(items: list[Item]) -> list[str]:
             "copies against the reported access techniques."
         )
 
-    if any(item.section in {"Fortinet", "HPE", "Other Vendor Advisories"} for item in items):
+    if any(item.section in {"Fortinet", "HPE and Aruba", "Other Vendor Advisories"} for item in items):
         actions.append(
             "Check the vendor advisory section against deployed products and "
             "current patch or firmware levels."
         )
 
-    if any(item.section == "Nordic Impact" for item in items):
+    if any(item.section in {"Scandinavia and Europe", "Norwegian Security Governance"} for item in items):
         actions.append(
             "Assess the NSM warning against Norwegian operations and customer "
             "environments."
@@ -2362,6 +3740,10 @@ def render_report(
     upcoming_events: list[dict[str, str]],
     upcoming_days: int,
     source_health: list[dict[str, Any]],
+    executive_news: list[NewsLink],
+    sector_impacts: list[SectorImpact],
+    detection_opportunities: list[DetectionOpportunity],
+    regional_links: list[NewsLink],
 ) -> tuple[str, str]:
     status = defcon_status(items)
     actions = immediate_actions(items)
@@ -2387,18 +3769,20 @@ def render_report(
 
     section_order = (
         "Known Exploited Vulnerabilities",
-        "Microsoft",
+        "Microsoft, Azure and Identity",
         "Fortinet",
-        "HPE",
+        "HPE and Aruba",
         "Other Vendor Advisories",
         "Cloud and Identity",
+        "SOC and Detection Engineering",
         "Threat Intelligence",
         "Vulnerability Research",
+        "OT, Energy and Oil & Gas",
+        "Scandinavia and Europe",
         "Norwegian Security Governance",
         "Compliance",
         "Standards",
         "GRC",
-        "Nordic Impact",
     )
 
     grouped: dict[str, list[Item]] = {
@@ -2409,20 +3793,22 @@ def render_report(
         grouped.setdefault(item.section, []).append(item)
 
     monitored_topics = ", ".join(MONITORED_GOVERNANCE_TOPICS)
+    report_title = f"{BRIEF_NAME} v{BRIEF_VERSION}"
 
     text = [
-        "Daily CISO Cybersecurity Briefing",
-        "=" * 36,
+        report_title,
+        "=" * len(report_title),
         "",
         f"Reporting window: previous {lookback_hours} hours",
         f"Overall threat level: {status['display']}",
-        f"Included developments: {len(items)}",
+        f"Included primary developments: {len(items)}",
+        f"Relevant discovery links: {len(executive_news)}",
         f"Governance horizon: today through the next {upcoming_days} days",
         "",
         "Executive Summary",
         "-----------------",
         "",
-        "Top developments",
+        "Top Developments",
     ]
 
     if top:
@@ -2432,7 +3818,31 @@ def render_report(
                 f"— {item.source}"
             )
     else:
-        text.append("No qualifying developments were collected.")
+        text.append("No qualifying primary developments were collected.")
+
+    if executive_news:
+        text.extend(
+            [
+                "",
+                "Relevant Cyber News",
+                (
+                    "Secondary-source headlines filtered for technology, "
+                    "geography and customer-sector relevance. Primary sources "
+                    "remain authoritative for risk and remediation."
+                ),
+            ]
+        )
+
+        for news_link in executive_news:
+            tag_text = (
+                f"[{', '.join(news_link.tags)}] "
+                if news_link.tags
+                else ""
+            )
+            text.append(
+                f"- {tag_text}{news_link.title} "
+                f"— {news_link.source}: {news_link.link}"
+            )
 
     text.extend(["", "Zero-Day and CVSS 10.0"])
 
@@ -2450,7 +3860,16 @@ def render_report(
     else:
         text.append("None identified in the reporting window.")
 
-    text.extend(["", "Major compliance, standards and governance changes"])
+    if sector_impacts:
+        text.extend(["", "Sector and Customer Impact"])
+
+        for impact in sector_impacts:
+            text.append(
+                f"- {impact.sector}: {impact.implication} "
+                f"Trigger: {impact.headline} — {impact.source}: {impact.link}"
+            )
+
+    text.extend(["", "Compliance, Standards and Governance Changes"])
 
     if major_governance:
         for item in major_governance:
@@ -2463,7 +3882,7 @@ def render_report(
     text.extend(
         [
             "",
-            f"Going live today or within {upcoming_days} days",
+            f"Going Live Today or Within {upcoming_days} Days",
         ]
     )
 
@@ -2481,7 +3900,7 @@ def render_report(
             "",
             f"Monitored governance topics: {monitored_topics}",
             "",
-            "Immediate actions",
+            "Immediate Actions",
         ]
     )
 
@@ -2491,6 +3910,45 @@ def render_report(
     for section in section_order:
         section_items = grouped.get(section, [])
 
+        if section == "SOC and Detection Engineering":
+            if not section_items and not detection_opportunities:
+                continue
+
+            text.extend(["", section, "=" * len(section)])
+
+            for opportunity in detection_opportunities:
+                text.extend(
+                    [
+                        f"- Detection opportunity: {opportunity.title}",
+                        f"  Detection: {opportunity.detection}",
+                        f"  Data sources: {opportunity.data_sources}",
+                        f"  MITRE ATT&CK: {opportunity.mitre}",
+                        f"  Source: {opportunity.source}: {opportunity.link}",
+                    ]
+                )
+
+            for number, item in enumerate(section_items, start=1):
+                text.extend(render_item_text(item, number))
+
+            continue
+
+        if section == "Scandinavia and Europe":
+            if not section_items and not regional_links:
+                continue
+
+            text.extend(["", section, "=" * len(section)])
+
+            for regional_link in regional_links:
+                text.append(
+                    f"- {regional_link.title} — "
+                    f"{regional_link.source}: {regional_link.link}"
+                )
+
+            for number, item in enumerate(section_items, start=1):
+                text.extend(render_item_text(item, number))
+
+            continue
+
         if not section_items:
             continue
 
@@ -2499,15 +3957,15 @@ def render_report(
         for number, item in enumerate(section_items, start=1):
             text.extend(render_item_text(item, number))
 
-    text.extend(
-        [
-            "",
-            "Upcoming Compliance, Standards and Governance",
-            "---------------------------------------------",
-        ]
-    )
-
     if upcoming_events:
+        text.extend(
+            [
+                "",
+                "Upcoming Compliance, Standards and Governance",
+                "---------------------------------------------",
+            ]
+        )
+
         for event in upcoming_events:
             text.extend(
                 [
@@ -2519,12 +3977,6 @@ def render_report(
                     f"  Link: {event.get('source_url') or 'Not supplied'}",
                 ]
             )
-    else:
-        text.append(
-            f"No tracked event falls between today and "
-            f"{upcoming_days} days from today."
-        )
-
 
     active_sources = [
         health
@@ -2543,13 +3995,7 @@ def render_report(
     )
 
     if active_sources or failed_sources or quiet_source_count:
-        text.extend(
-            [
-                "",
-                "Source Coverage",
-                "---------------",
-            ]
-        )
+        text.extend(["", "Source Coverage", "---------------"])
 
     for health in active_sources:
         text.append(
@@ -2574,22 +4020,24 @@ def render_report(
             "---------------",
             "- New CISA KEV additions and confirmation of active exploitation.",
             "- Explicit zero-days and vulnerabilities with CVSS 10.0.",
-            "- Internet-facing firewall, VPN, identity, and remote-access flaws.",
-            "- Microsoft identity, Azure, and Microsoft 365 attack activity.",
-            "- Fortinet and HPE security advisories affecting deployed estates.",
+            "- Microsoft identity, Azure and Microsoft 365 attack activity.",
+            "- Fortinet, HPE and Aruba advisories affecting deployed estates.",
+            "- SOC detection gaps exposed by current attacker techniques.",
+            "- OT, oil and gas, energy and critical-infrastructure targeting.",
             "- Ransomware access trends and destructive malware developments.",
             "- Software supply-chain compromise and exposed build credentials.",
+            "- Scandinavian and European incidents with customer relevance.",
             "- NSM warnings and changes relating to Sikkerhetsloven.",
             "- Norwegian and EEA NIS2 implementation changes and deadlines.",
             "- ISO/IEC 27001, ISO 50001, ISO 9001, ISO 14001 and "
             "ISO/IEC 33000-series developments.",
-            "- Compliance deadlines, regulatory interpretation, and audit duties.",
+            "- Compliance deadlines, regulatory interpretation and audit duties.",
             "- GRC changes affecting risk ownership and assurance evidence.",
         ]
     )
 
     if warnings:
-        text.extend(["", "Source warnings", "---------------"])
+        text.extend(["", "Source Warnings", "---------------"])
         text.extend(f"- {warning}" for warning in warnings)
 
     top_html = (
@@ -2599,7 +4047,27 @@ def render_report(
             f"<em>— {html.escape(item.source)}</em></li>"
             for item in top
         )
-        or "<li>No qualifying developments were collected.</li>"
+        or "<li>No qualifying primary developments were collected.</li>"
+    )
+
+    executive_news_html = "".join(
+        (
+            "<li style='margin-bottom:7px'>"
+            + (
+                "<strong>["
+                + html.escape(", ".join(news_link.tags))
+                + "]</strong> "
+                if news_link.tags
+                else ""
+            )
+            + f'<a href="{html.escape(news_link.link, quote=True)}">'
+            + html.escape(news_link.title)
+            + "</a>"
+            + " <em>— "
+            + html.escape(news_link.source)
+            + "</em></li>"
+        )
+        for news_link in executive_news
     )
 
     special_html = (
@@ -2610,9 +4078,7 @@ def render_report(
                     marker
                     for marker in (
                         "Zero-Day" if item.zero_day else "",
-                        "CVSS 10.0"
-                        if item.cvss_score == 10.0
-                        else "",
+                        "CVSS 10.0" if item.cvss_score == 10.0 else "",
                     )
                     if marker
                 )
@@ -2625,6 +4091,19 @@ def render_report(
             for item in critical_special
         )
         or "<li>None identified in the reporting window.</li>"
+    )
+
+    sector_html = "".join(
+        (
+            "<li style='margin-bottom:8px'>"
+            f"<strong>{html.escape(impact.sector)}:</strong> "
+            f"{html.escape(impact.implication)} "
+            f'<a href="{html.escape(impact.link, quote=True)}">'
+            f"{html.escape(impact.headline)}</a> "
+            f"<em>— {html.escape(impact.source)}</em>"
+            "</li>"
+        )
+        for impact in sector_impacts
     )
 
     governance_html = (
@@ -2664,10 +4143,84 @@ def render_report(
         f"<li>{html.escape(action)}</li>" for action in actions
     )
 
+    detection_html = "".join(
+        f"""
+        <article style="
+            border:1px solid #d0d7de;
+            border-radius:8px;
+            padding:16px;
+            margin:0;
+            background:#ffffff;
+        ">
+          <h3 style="margin-top:0">
+            {html.escape(opportunity.title)}
+          </h3>
+          <p><strong>Detection opportunity:</strong>
+             {html.escape(opportunity.detection)}</p>
+          <p><strong>Data sources:</strong>
+             {html.escape(opportunity.data_sources)}</p>
+          <p><strong>MITRE ATT&amp;CK:</strong>
+             {html.escape(opportunity.mitre)}</p>
+          <p>
+            <a href="{html.escape(opportunity.link, quote=True)}">
+              Open supporting source
+            </a>
+            <em>— {html.escape(opportunity.source)}</em>
+          </p>
+        </article>
+        <hr style="
+            border:0;
+            border-top:1px solid #b8bec5;
+            margin:24px 0 28px 0;
+            width:100%;
+        ">
+        """
+        for opportunity in detection_opportunities
+    )
+
+    regional_html = "".join(
+        (
+            "<li style='margin-bottom:7px'>"
+            f'<a href="{html.escape(link.link, quote=True)}">'
+            f"{html.escape(link.title)}</a> "
+            f"<em>— {html.escape(link.source)}</em></li>"
+        )
+        for link in regional_links
+    )
+
     sections_html: list[str] = []
 
     for section in section_order:
         section_items = grouped.get(section, [])
+
+        if section == "SOC and Detection Engineering":
+            if not section_items and not detection_opportunities:
+                continue
+
+            sections_html.append(
+                f"<h2 style='margin-top:32px'>{html.escape(section)}</h2>"
+            )
+            sections_html.append(detection_html)
+            sections_html.extend(
+                render_item_html(item) for item in section_items
+            )
+            continue
+
+        if section == "Scandinavia and Europe":
+            if not section_items and not regional_links:
+                continue
+
+            sections_html.append(
+                f"<h2 style='margin-top:32px'>{html.escape(section)}</h2>"
+            )
+
+            if regional_html:
+                sections_html.append(f"<ul>{regional_html}</ul>")
+
+            sections_html.extend(
+                render_item_html(item) for item in section_items
+            )
+            continue
 
         if not section_items:
             continue
@@ -2675,11 +4228,9 @@ def render_report(
         sections_html.append(
             f"<h2 style='margin-top:32px'>{html.escape(section)}</h2>"
         )
-
         sections_html.extend(
             render_item_html(item) for item in section_items
         )
-
 
     active_health = [
         health
@@ -2697,26 +4248,24 @@ def render_report(
         if health["status"] == "OK" and health["items"] == 0
     )
 
-    health_rows = list(active_health)
-
     health_html = "".join(
         (
             "<tr>"
             f"<td style='padding:4px 12px 4px 0'>"
             f"{html.escape(str(health['source']))}</td>"
-            f"<td style='padding:4px 12px'>Checked</td>"
+            "<td style='padding:4px 12px'>Checked</td>"
             f"<td style='padding:4px 12px'>{health['items']}</td>"
             "<td style='padding:4px 0'></td>"
             "</tr>"
         )
-        for health in health_rows
+        for health in active_health
     )
 
-    if quiet_health_count:
+    if quiet_source_count:
         health_html += (
             "<tr>"
             "<td style='padding:4px 12px 4px 0' colspan='4'>"
-            f"<em>{quiet_health_count} additional source(s) checked with "
+            f"<em>{quiet_source_count} additional source(s) checked with "
             "no qualifying updates.</em>"
             "</td>"
             "</tr>"
@@ -2740,7 +4289,7 @@ def render_report(
 
     if warnings:
         warnings_html = (
-            "<h2>Source warnings</h2><ul>"
+            "<h2>Source Warnings</h2><ul>"
             + "".join(
                 f"<li>{html.escape(warning)}</li>" for warning in warnings
             )
@@ -2756,6 +4305,34 @@ def render_report(
         f'{html.escape(status["display"])}</span>'
     )
 
+    relevant_news_block = ""
+    if executive_news_html:
+        relevant_news_block = (
+            "<h3>Relevant Cyber News</h3>"
+            "<p style='margin-top:0'>"
+            "Secondary-source headlines filtered for technology, geography "
+            "and customer-sector relevance. These links are for discovery; "
+            "primary vendor, government and standards sources remain "
+            "authoritative for risk ratings, compliance conclusions and "
+            "remediation actions."
+            "</p>"
+            f"<ul>{executive_news_html}</ul>"
+        )
+
+    sector_block = ""
+    if sector_html:
+        sector_block = (
+            "<h3>Sector and Customer Impact</h3>"
+            f"<ul>{sector_html}</ul>"
+        )
+
+    upcoming_detail_block = ""
+    if upcoming_events:
+        upcoming_detail_block = (
+            "<h2>Upcoming Compliance, Standards and Governance</h2>"
+            f"<ul>{upcoming_html}</ul>"
+        )
+
     html_report = f"""
     <!doctype html>
     <html lang="en">
@@ -2767,29 +4344,34 @@ def render_report(
         margin:20px auto;
         padding:0 20px;
     ">
-      <h1>Daily CISO Cybersecurity Briefing</h1>
+      <h1>{html.escape(report_title)}</h1>
 
       <p>
         <strong>Reporting window:</strong>
         previous {lookback_hours} hours<br>
         <strong>Overall threat level:</strong> {badge}<br>
-        <strong>Included developments:</strong> {len(items)}<br>
+        <strong>Included primary developments:</strong> {len(items)}<br>
+        <strong>Relevant discovery links:</strong> {len(executive_news)}<br>
         <strong>Governance horizon:</strong>
         today through the next {upcoming_days} days
       </p>
 
       <h2>Executive Summary</h2>
 
-      <h3>Top developments</h3>
+      <h3>Top Developments</h3>
       <ol>{top_html}</ol>
+
+      {relevant_news_block}
 
       <h3>Zero-Day and CVSS 10.0</h3>
       <ul>{special_html}</ul>
 
-      <h3>Major compliance, standards and governance changes</h3>
+      {sector_block}
+
+      <h3>Compliance, Standards and Governance Changes</h3>
       <ul>{governance_html}</ul>
 
-      <h3>Going live today or within {upcoming_days} days</h3>
+      <h3>Going Live Today or Within {upcoming_days} Days</h3>
       <ul>{upcoming_html}</ul>
 
       <p>
@@ -2797,13 +4379,12 @@ def render_report(
         {html.escape(monitored_topics)}
       </p>
 
-      <h2>Immediate actions</h2>
+      <h2>Immediate Actions</h2>
       <ul>{actions_html}</ul>
 
       {''.join(sections_html)}
 
-      <h2>Upcoming Compliance, Standards and Governance</h2>
-      <ul>{upcoming_html}</ul>
+      {upcoming_detail_block}
 
       <h2>Source Coverage</h2>
       <table style="
@@ -2826,18 +4407,20 @@ def render_report(
       <ul>
         <li>New CISA KEV additions and active exploitation.</li>
         <li>Explicit zero-days and CVSS 10.0 vulnerabilities.</li>
-        <li>Internet-facing firewall, VPN, and identity flaws.</li>
-        <li>Microsoft identity, Azure, and Microsoft 365 attacks.</li>
-        <li>Fortinet and HPE security advisories.</li>
+        <li>Microsoft identity, Azure and Microsoft 365 attacks.</li>
+        <li>Fortinet, HPE and Aruba security advisories.</li>
+        <li>SOC detection gaps exposed by current attacker techniques.</li>
+        <li>OT, oil and gas, energy and critical-infrastructure threats.</li>
         <li>Ransomware access and destructive malware trends.</li>
         <li>Software supply-chain and build credential compromise.</li>
+        <li>Scandinavian and European incidents with customer impact.</li>
         <li>NSM, Sikkerhetsloven and Norwegian NIS2 changes.</li>
         <li>
           ISO/IEC 27001, ISO 50001, ISO 9001, ISO 14001 and
           ISO/IEC 33000-series developments.
         </li>
         <li>Compliance deadlines and regulatory implementation changes.</li>
-        <li>Governance, risk, audit, and assurance developments.</li>
+        <li>Governance, risk, audit and assurance developments.</li>
       </ul>
 
       {warnings_html}
@@ -3027,6 +4610,78 @@ def main() -> int:
 
         all_items = deduplicate(collected)
 
+        executive_news_candidates: list[NewsLink] = []
+
+        for news_source in EXECUTIVE_NEWS_RSS:
+            try:
+                links = fetch_executive_news_rss(
+                    news_source,
+                    cutoff,
+                )
+                executive_news_candidates.extend(links)
+                source_health.append(
+                    {
+                        "source": news_source["name"],
+                        "status": "OK",
+                        "items": len(links),
+                        "detail": "Executive news discovery",
+                    }
+                )
+                print(
+                    f"{news_source['name']}: "
+                    f"{len(links)} relevant news link(s)"
+                )
+            except Exception as error:
+                warning = (
+                    f"{news_source['name']}: "
+                    f"{type(error).__name__}: {error}"
+                )
+                warnings.append(warning)
+                source_health.append(
+                    {
+                        "source": news_source["name"],
+                        "status": "FAILED",
+                        "items": 0,
+                        "detail": f"{type(error).__name__}: {error}",
+                    }
+                )
+                print(f"WARNING: {warning}", file=sys.stderr)
+
+        for news_source in EXECUTIVE_NEWS_HTML:
+            try:
+                links = fetch_executive_news_html(
+                    news_source,
+                    cutoff,
+                )
+                executive_news_candidates.extend(links)
+                source_health.append(
+                    {
+                        "source": news_source["name"],
+                        "status": "OK",
+                        "items": len(links),
+                        "detail": "Executive news discovery",
+                    }
+                )
+                print(
+                    f"{news_source['name']}: "
+                    f"{len(links)} relevant news link(s)"
+                )
+            except Exception as error:
+                warning = (
+                    f"{news_source['name']}: "
+                    f"{type(error).__name__}: {error}"
+                )
+                warnings.append(warning)
+                source_health.append(
+                    {
+                        "source": news_source["name"],
+                        "status": "FAILED",
+                        "items": 0,
+                        "detail": f"{type(error).__name__}: {error}",
+                    }
+                )
+                print(f"WARNING: {warning}", file=sys.stderr)
+
         enrich_nvd(all_items, warnings)
 
         all_items.sort(
@@ -3034,6 +4689,33 @@ def main() -> int:
             reverse=True,
         )
         items = select_final_items(all_items, max_items)
+
+        executive_news_max = integer_setting(
+            "EXEC_NEWS_MAX_ITEMS",
+            default=10,
+            minimum=1,
+            maximum=20,
+        )
+        executive_news = select_executive_news(
+            executive_news_candidates,
+            items,
+            executive_news_max,
+        )
+
+        sector_impacts = build_sector_impacts(
+            items,
+            executive_news,
+            max_items=5,
+        )
+        detection_opportunities = build_detection_opportunities(
+            items,
+            max_items=6,
+        )
+        regional_links = build_regional_links(
+            items,
+            executive_news,
+            max_items=8,
+        )
 
         today = local_now.date()
         configured_events = load_configured_governance_events(
@@ -3057,11 +4739,15 @@ def main() -> int:
             upcoming_events,
             upcoming_days,
             source_health,
+            executive_news,
+            sector_impacts,
+            detection_opportunities,
+            regional_links,
         )
 
         status = defcon_status(items)
         subject = (
-            f"{status['display']} | Daily CISO Brief | "
+            f"{status['display']} | {BRIEF_NAME} v{BRIEF_VERSION} | "
             f"{len(items)} development(s)"
         )
 
@@ -3078,6 +4764,10 @@ def main() -> int:
             f"Briefing sent: {status['display']}, "
             f"{len(items)} item(s), "
             f"{len(upcoming_events)} upcoming event(s), "
+            f"{len(executive_news)} relevant news link(s), "
+            f"{len(sector_impacts)} sector impact(s), "
+            f"{len(detection_opportunities)} detection opportunity(s), "
+            f"{len(regional_links)} regional link(s), "
             f"{len(warnings)} warning(s)."
         )
 
