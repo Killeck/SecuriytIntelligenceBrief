@@ -12,6 +12,25 @@ The Executive Summary focuses on actionable Security Advisory and dark-web-relat
 
 See the [changelog](https://github.com/Killeck/SecuriytIntelligenceBrief/blob/main/changelog.md) for the complete development history.
 
+---
+## Version 4.2
+
+Version 4.2 focuses on code efficiency, maintainability and runtime performance.
+
+### Changes
+
+* Replaced the single large Python file with a modular package.
+* Added parallel source collection with configurable worker count.
+* Added reusable HTTP sessions, retries and backoff.
+* Reduced duplicated collection and error-handling logic.
+* Split report preparation, text rendering and HTML rendering.
+* Added automated regression tests to both GitHub Actions workflows.
+* Kept the existing execution command and report output compatible with v4.1.
+
+See [OPTIMISATION.md](OPTIMISATION.md) for technical details.
+
+---
+
 ## Core behaviour
 
 * Runs automatically at **07:07 Europe/Oslo**.
