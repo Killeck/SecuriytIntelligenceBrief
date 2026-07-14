@@ -4,9 +4,101 @@ All notable changes to the **Daily CISO Security Briefing** are documented in
 this file.
 
 The project was developed through a series of working milestones before the
-formal v4.0 release. Versions before 4.0 below are reconstructed from those
+current working version. Versions before 4.0 below are reconstructed from those
 milestones and repository changes; they were not all published as formal
 releases.
+
+## 4.1 - 2026-07-14
+
+### Summary
+Shifting focus, this has been the intent the whole way, however getting the basics in place was essential. The shift now transitions from CISO to Security advisory and Dark Web, without loosing the holistic data collection value and holistic security oversight. Renamed the project to **Daily Security Brief** and shifte the Executive Summary toward Security Advisory and dark-web exposure intelligence wihtout removing the broad CISOintelligence model established from 2.0 to 4.0. 
+
+### Added/Changed
+
+Security advisory and exposure layer
+
+- Added an independent Security Advisory Level based on:
+  - Verified or reported credential exposure.
+  - Stealer-log and infostealer developments.
+  - Ransomware and extortion reporting.
+  - Data breaches and leaks.
+  - Initial-access broker and cybercrime-market activity.
+  - Brand impersonation and phishing infrastructure.
+- Added exposure signal confidence labels:
+  - Verified.
+  - Domain ownership verified.
+  - Primary or research source.
+  - Secondary reporting.
+  - Unverified dataset.
+- Added exposure-focused Executive Summary elements:
+  - Dark Web and Exposure Highlights.
+  - Ransomware and Extortion Watch.
+  - Credential and Stealer Exposure.
+  - Customer and Sector Advisory Impact.
+  - Recommended Security Advisory Actions.
+- Added detailed exposure sections:
+  - Ransomware and Extortion.
+  - Credential Exposure and Stealer Logs.
+  - Data Breaches and Leaks.
+  - Initial Access and Cybercrime Markets.
+  - Brand, Impersonation and Phishing.
+  - Dark Web and Criminal Ecosystem.
+- Added public Have I Been Pwned breach-catalogue monitoring.
+- Added optional HIBP verified-domain monitoring through:
+  - `HIBP_API_KEY`.
+  - `MONITORED_DOMAINS`.
+- Added optional relevance monitoring through:
+  - `MONITORED_BRANDS`.
+  - `MONITORED_DOMAINS`.
+- Added FBI Cyber News for public law-enforcement and criminal-ecosystem
+  reporting.
+- Added privacy-preserving HIBP domain reporting that excludes individual email
+  aliases from the briefing.
+
+#### Retained CISO intelligence
+
+### Changed
+
+- Renamed the product from `Daily CISO Security Briefing` to
+  `Daily Security Brief`.
+- Changed the version from 4.0 to 4.1.
+- Changed the executive emphasis from board-level CISO reporting alone to a
+  combined customer-facing Security Advisory and CISO intelligence view.
+- Changed the email subject to include:
+  - Security Advisory Level.
+  - Enterprise DEFCON-style Cyber Threat Level.
+  - Product name and version.
+- Changed workflow names to:
+  - `Daily Security Brief v4.1`.
+- Renamed workflow files to:
+  - `.github/workflows/daily-security-brief.yml`.
+- Renamed the Python entry point to:
+  `src/send_security_advisory.py`.
+
+### Security and handling
+
+- Documented that the pipeline does not connect to:
+  - Onion services.
+  - Criminal forums.
+  - Ransomware leak sites.
+  - Stolen-data repositories.
+  - Illicit marketplaces.
+- Added a handling note requiring ransomware and dark-web victim claims to be
+  treated as reported intelligence until corroborated.
+- Added guidance not to download stolen data or contact threat actors.
+- Added guidance to restrict exposure reports to authorised advisory,
+  incident-response and customer teams.
+
+### Known limitations
+
+- Public reporting does not provide full direct dark-web visibility.
+- HIBP domain monitoring requires an HIBP subscription and verified domain
+  ownership.
+- Exposure classification remains deterministic rather than LLM-based.
+- Brand monitoring is textual and does not yet include certificate
+  transparency, DNS or visual-logo similarity checks.
+
+---
 
 ## 4.0 - 2026-07-14
 
