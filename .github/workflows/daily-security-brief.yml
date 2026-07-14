@@ -25,6 +25,12 @@ on:
         default: "40"
         type: string
 
+      executive_news_max:
+        description: Maximum number of relevant cyber-news links
+        required: true
+        default: "10"
+        type: string
+      
 permissions:
   contents: read
 
@@ -36,7 +42,7 @@ jobs:
   send-combined-brief:
     name: Generate and email briefing
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 30
 
     steps:
       - name: Check out repository
@@ -65,7 +71,9 @@ jobs:
           NEWS_LOOKBACK_HOURS: ${{ inputs.lookback_hours || 'auto' }}
           KEV_LOOKBACK_DAYS: ${{ inputs.kev_lookback_days || 'auto' }}
           NEWS_MAX_ITEMS: ${{ inputs.max_items || '40' }}
-
+          EXEC_NEWS_MAX_ITEMS: ${{ inputs.executive_news_max || '10' }}
+          EXEC_NEWS_MIN_SCORE: "24"
+          
           UPCOMING_GOVERNANCE_DAYS: "14"
 
         run: python src/send_combined_brief.py
