@@ -1,58 +1,81 @@
-# SecuriytIntelligenceBrief V4.0
+# SecurityIntelligenceBrief v4.1
 
-My own personal customised Security and Intelligence Brief. Designed to keep me in the "now" situation of security happenings and information
-A no-LLM, no-cloud-resource-cost cybersecurity intelligence pipeline built with Python, GitHub Actions and Gmail SMTP
+My personally customised cybersecurity intelligence briefing, designed to keep me current on significant security developments, emerging threats, external exposure and relevant governance changes.
 
-The pipeline collects structured security information from official advisories, vendor research, standards, and governance sources, and a curated set of secondary cyber-news publications. Applying deterministic relevance scoring, deduplication, CVSS enrichment and sector filtering, then emails a daily HTML briefing. 
-See: [changelog](https://github.com/Killeck/SecuriytIntelligenceBrief/blob/main/changelog.md) for further details.
+SecurityIntelligenceBrief is a no-LLM, no-cloud-resource-cost pipeline built with Python, GitHub Actions and Gmail SMTP.
+
+The pipeline collects structured intelligence from official advisories, vulnerability databases, vendor research, threat-intelligence sources, standards and governance publications, law-enforcement reporting, breach metadata and a curated set of cybersecurity news providers.
+
+It applies deterministic relevance scoring, deduplication, CVSS enrichment, exposure classification, sector filtering and source-confidence labelling before delivering a daily HTML and plain-text briefing.
+
+The Executive Summary focuses on actionable Security Advisory and dark-web-related exposure intelligence, while retaining the broader technical, operational and CISO-level coverage required to understand the overall security landscape.
+
+See the [changelog](https://github.com/Killeck/SecuriytIntelligenceBrief/blob/main/changelog.md) for the complete development history.
 
 ## Core behaviour
 
-- Runs automatically at **07:07 Europe/Oslo**.
-- Uses the previous **72 hours on Mondays**.
-- Uses the previous **36 hours Tuesday through Sunday**.
-- Emails the report through Gmail SMTP.
-- Uses no paid LLM, Azure resource, database or hosted application.
-- Continues when an individual source fails.
-- Suppresses empty report sections.
-- Collapses successful zero-result sources into one quiet summary line.
-- Keeps failed sources visible under Source Coverage and Source Warnings.
+* Runs automatically at **07:07 Europe/Oslo**.
+* Uses the previous **72 hours on Mondays**.
+* Uses the previous **36 hours Tuesday through Sunday**.
+* Emails the report through Gmail SMTP.
+* Uses no paid LLM, Azure resource, database or hosted application.
+* Continues processing when an individual source fails.
+* Suppresses report sections that contain no qualifying information.
+* Collapses successful zero-result sources into one quiet summary line.
+* Keeps failed sources visible under **Source Coverage** and **Source Warnings**.
+* Separates verified exposure information from unconfirmed or secondary reporting.
+* Does not connect directly to onion services, criminal forums, ransomware leak sites or stolen-data repositories.
 
 ## Report structure
 
-### Executive Summary
+### Executive Security Advisory Summary
 
-1. Overall DEFCON-style threat level
-2. Top developments
-3. Relevant Cyber News
-4. Zero-Day and CVSS 10.0
-5. Sector and Customer Impact
-6. Compliance, Standards and Governance Changes
-7. Going Live Today or Within 14 Days
-8. Immediate Actions
+1. Security Advisory Level
+2. Enterprise DEFCON-style Cyber Threat Level
+3. Priority Security Advisories
+4. Dark Web and Exposure Highlights
+5. Ransomware and Extortion Watch
+6. Credential and Stealer Exposure
+7. Relevant Cyber News
+8. Zero-Day and CVSS 10.0
+9. Customer and Sector Advisory Impact
+10. Recommended Security Advisory Actions
+11. Compliance, Standards and Governance Changes
+12. Going Live Today or Within 14 Days
 
-### Detailed sections
+### Exposure intelligence sections
 
-1. Known Exploited Vulnerabilities
-2. Microsoft, Azure and Identity
-3. Fortinet
-4. HPE and Aruba
-5. Other Vendor Advisories
-6. Cloud and Identity
-7. SOC and Detection Engineering
-8. Threat Intelligence
-9. Vulnerability Research
-10. OT, Energy and Oil & Gas
-11. Scandinavia and Europe
-12. Norwegian Security Governance
-13. Compliance
-14. Standards
-15. GRC
-16. Upcoming Compliance, Standards and Governance
-17. Source Coverage
-18. CISO Watch List
+1. Ransomware and Extortion
+2. Credential Exposure and Stealer Logs
+3. Data Breaches and Leaks
+4. Initial Access and Cybercrime Markets
+5. Brand, Impersonation and Phishing
+6. Dark Web and Criminal Ecosystem
+
+### Technical and CISO intelligence sections
+
+1. Active Exploitation and CISA KEV
+2. Law-Enforcement and Criminal Ecosystem Reporting
+3. Microsoft, Azure and Identity
+4. Fortinet
+5. HPE and Aruba
+6. Other Vendor Security Advisories
+7. Cloud and Supply-Chain Security
+8. SOC and Detection Engineering
+9. Threat Intelligence
+10. Vulnerability Research
+11. OT, Energy and Oil & Gas
+12. Scandinavia and Europe
+13. Norwegian Security Governance
+14. Compliance
+15. Standards
+16. GRC
+17. Upcoming Compliance, Standards and Governance
+18. Source Coverage
+19. Security Advisory and CISO Watch List
 
 Empty sections are not displayed.
+
 
 ## Threat-level model
 
