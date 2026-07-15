@@ -1,11 +1,15 @@
-# Daily Security Brief
+<!--
+Copyright © 2026 John-Helge Gantz. All rights reserved.
+Proprietary software. See LICENSE.
+-->
 
+# Daily Security Brief
 
 A Python and GitHub Actions cybersecurity intelligence pipeline for Security
 Advisors, Technical Account Managers, SOC advisory functions, CISOs and
 customer-facing security teams.
 
-Version 4.3 retains the broad CISO intelligence coverage introduced in v4.0,
+The current release retains the broad CISO intelligence coverage introduced in v4.0,
 including critical vulnerabilities, active exploitation, Microsoft, Fortinet,
 HPE and Aruba, cloud and identity, SOC detection, OT and energy, Scandinavia,
 compliance, standards and GRC.
@@ -34,9 +38,9 @@ onion services, criminal forums, ransomware leak sites, stolen-data
 repositories or illicit marketplaces.
 
 
-## Version 5.0 email layout
+## Dashboard email layout
 
-Version 5.0 replaces the long-form HTML email with a compact, dark,
+The current release replaces the long-form HTML email with a compact, dark,
 dashboard-style daily digest.
 
 The email now begins with:
@@ -349,7 +353,7 @@ The report continues to prioritise:
 
 ## Optimised architecture
 
-Version 4.3 retains the modular package introduced in v4.2 and replaces the previous long-form HTML presentation with a compact dashboard renderer. The command used by GitHub Actions remains unchanged:
+The current release retains the modular package introduced in v4.2 and uses a compact dashboard renderer. The command used by GitHub Actions remains unchanged:
 
 ```text
 python src/send_security_advisory.py
@@ -441,19 +445,19 @@ Do not store these values in source files or workflow files.
 
 ## Installation
 
-1. Copy the v4.3 repository files into the project.
+1. Copy the current repository files into the project.
 2. Remove or disable the previous v4.0 workflows.
 3. Confirm the three required Gmail secrets.
 4. Add optional NVD and HIBP secrets where applicable.
 5. Add monitored brands and domains only when required.
 6. Commit to the default branch.
 7. Run the test workflow.
-8. Leave only the v4.3 production workflow enabled for scheduled delivery.
+8. Leave only the current production workflow enabled for scheduled delivery.
 
 Suggested commit:
 
 ```text
-Release Daily Security Brief v4.3
+Release Daily Security Brief
 ```
 
 ## Manual test
@@ -461,7 +465,7 @@ Release Daily Security Brief v4.3
 Open:
 
 ```text
-Actions → Test Daily Security Brief v4.3
+Actions → Test Daily Security Brief
 ```
 
 Recommended initial values:
@@ -551,24 +555,34 @@ Tuesday–Sunday: 36 hours
 - Brand monitoring detects textual references only; it does not perform DNS,
   certificate-transparency or logo-similarity monitoring.
 
+## Maintenance priorities
+
+1. Add persistent state and cross-run deduplication.
+2. Add live parser-health and source-freshness monitoring.
+3. Externalise frequently changed source definitions and relevance rules.
+4. Add private report archiving and historical comparison.
+5. Pin dependencies with hashes and generate a CycloneDX or SPDX SBOM.
+
 ## Contributions
 
-This is a privately maintained proprietary project, External contributions
+This is a privately maintained proprietary project. External contributions
 are not currently accepted.
 
 Access to the repository does not grant permission to copy, modify,
 redistribute or reuse the source code or associated materials.
 
-## Licence and Ownership
+## Licence and ownership
 
 Copyright © 2026 John-Helge Gantz. All rights reserved.
 
-Daily Security Brief is proprietary software. The source code,
-documentation, workflows, report templates and associated materials may not
-be copied, modified, distributed, sublicensed or used to create derivative
-works without prior written permission from the copyright owner.
+Daily Security Brief is proprietary software. The source code, documentation,
+workflows, scoring logic, report templates and associated materials may not be
+copied, modified, distributed, sublicensed or used to create derivative works
+without prior written permission from the copyright owner.
 
-Access to this repository does not grant any ownership rights or implied
+Access to this repository does not grant ownership rights or an implied
 licence.
 
-See [LICENSE](LICENSE) for the complete terms.
+See [LICENSE](LICENSE), [NOTICE](NOTICE) and
+[THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) for the complete terms and
+third-party information.
