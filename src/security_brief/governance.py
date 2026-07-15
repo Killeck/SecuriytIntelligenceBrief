@@ -7,7 +7,7 @@
 """Forward-looking governance, compliance and standards milestones."""
 
 from __future__ import annotations
-
+from .config import BRIEF_VERSION
 import json
 from datetime import date, timedelta
 from .config import GOVERNANCE_SECTIONS, UPCOMING_GOVERNANCE_FILE
