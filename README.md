@@ -552,6 +552,14 @@ Tuesday–Sunday: 36 hours
 - Brand monitoring detects textual references only; it does not perform DNS,
   certificate-transparency or logo-similarity monitoring.
 
+## Contributions
+
+This is a privately maintained proprietary project, External contributions
+are not currently accepted.
+
+Access to the repository does not grant permission to copy, modify,
+redistribute or reuse the source code or associated materials.
+
 ## Licence and Ownership
 
 Copyright © 2026 John-Helge Gantz. All rights reserved.
