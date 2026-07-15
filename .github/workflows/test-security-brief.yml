@@ -1,0 +1,81 @@
+name: Test Daily Security Brief v4.3
+
+on:
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: Use 72 or a wider test window
+        required: true
+        default: "72"
+        type: string
+      kev_lookback_days:
+        description: Use auto or a number of calendar days
+        required: true
+        default: "3"
+        type: string
+      max_items:
+        description: Maximum number of primary security advisories
+        required: true
+        default: "50"
+        type: string
+      discovery_max:
+        description: Maximum number of discovery-news links
+        required: true
+        default: "12"
+        type: string
+      exposure_max:
+        description: Maximum number of exposure and dark-web signals
+        required: true
+        default: "25"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  test-advisory:
+    name: Generate and email test security brief
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: "pip"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install --requirement requirements.txt
+
+      - name: Run offline regression tests
+        env:
+          PYTHONPATH: src
+        run: python -m unittest discover -s tests -v
+
+      - name: Generate and send test security brief
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+
+          HIBP_API_KEY: ${{ secrets.HIBP_API_KEY }}
+          MONITORED_DOMAINS: ${{ secrets.MONITORED_DOMAINS }}
+          MONITORED_BRANDS: ${{ secrets.MONITORED_BRANDS }}
+
+          NEWS_LOOKBACK_HOURS: ${{ inputs.lookback_hours }}
+          KEV_LOOKBACK_DAYS: ${{ inputs.kev_lookback_days }}
+          NEWS_MAX_ITEMS: ${{ inputs.max_items }}
+          EXEC_NEWS_MAX_ITEMS: ${{ inputs.discovery_max }}
+          EXPOSURE_MAX_ITEMS: ${{ inputs.exposure_max }}
+          EXEC_NEWS_MIN_SCORE: "20"
+          UPCOMING_GOVERNANCE_DAYS: "14"
+          SOURCE_WORKERS: "8"
+
+        run: python src/send_security_advisory.py
