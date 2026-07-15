@@ -80,6 +80,7 @@ jobs:
           GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
+          NVD_MAX_CVES: "75"
 
           # Optional dark-web and exposure monitoring.
           HIBP_API_KEY: ${{ secrets.HIBP_API_KEY }}
