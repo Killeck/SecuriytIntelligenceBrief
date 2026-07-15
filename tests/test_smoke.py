@@ -25,6 +25,10 @@ from security_brief.app import (
 from security_brief import BRIEF_VERSION, collectors
 from security_brief.models import Item, NewsLink
 from security_brief.rendering import render_report
+from security_brief.collectors import (
+    canonicalise_article_url, 
+    executive_article_url_allowed,
+)
 
 
 class MockResponse:
