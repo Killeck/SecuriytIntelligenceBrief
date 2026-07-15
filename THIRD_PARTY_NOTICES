@@ -36,8 +36,3 @@ which may include:
 No ownership is claimed over third-party advisories, vulnerability records,
 articles, trademarks, logos or datasets. Collection and use remain subject to
 the relevant provider's terms, robots policies, API conditions and copyright.
-
-## Review requirement
-
-Review this file whenever dependencies or external source integrations are
-added, removed or materially changed.
