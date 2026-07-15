@@ -1,4 +1,7 @@
-name: Test Daily Security Brief v4.3
+# Copyright © 2026 John-Helge Gantz. All rights reserved.
+# Proprietary software. See LICENSE.
+
+name: Test Daily Security Brief v5.0
 
 on:
   workflow_dispatch:
