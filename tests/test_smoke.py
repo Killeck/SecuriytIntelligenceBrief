@@ -46,99 +46,99 @@ class MockResponse:
         return self._payload
 
 
-class PipelineTests(unittest.TestCase):
-    """Validate failure isolation, exposure mapping and report rendering."""
-
-    def setUp(self) -> None:
-        self.now = datetime.now(timezone.utc)
-        self.item = Item(
-            title="Actively exploited Fortinet authentication bypass",
-            summary=(
-                "Attackers exploit an internet-facing Fortinet flaw against "
-                "European energy and managed-service organisations."
-            ),
-            link="https://example.invalid/fortinet",
-            published=self.now,
-            source="Sample Vendor",
-            vendor="Fortinet",
-            section="Fortinet",
-            category="Active exploitation",
-            score=105,
-            cves=["CVE-2026-12345"],
-            exploited=True,
-            kev=True,
-            affected="Internet-facing Fortinet systems.",
-            action="Patch and investigate exposed appliances.",
-            why="The flaw can provide initial access.",
-        )
-        self.news = NewsLink(
-            title="Ransomware group claims Nordic retail supplier",
-            link="https://example.invalid/ransomware",
-            source="Sample News",
-            published=self.now,
-            score=78,
-            tags=[
-                "Dark Web/Exposure",
-                "Nordics",
-                "Retail/Hospitality/Property",
-            ],
-            summary=(
-                "A ransomware claim alleges stolen customer data from a "
-                "Nordic retail supplier."
-            ),
-        )
-
-    def test_reuters_article_url_validation(self) -> None:
-    source = {
-        "allowed_hosts": (
-            "www.reuters.com",
-            "reuters.com",
-        ),
-        "article_path_regex": (
-            r"^/(technology|world|legal|business|sustainability)/"
-            r".+-\d{4}-\d{2}-\d{2}/?$"
-        ),
-        "exclude": (
-            "/video/",
-            "/pictures/",
-            "/graphics/",
-            "/commentary/",
-        ),
-    }
-
-    valid_urls = (
-        (
-            "https://www.reuters.com/technology/"
-            "example-cyber-story-2026-07-14"
-        ),
-        (
-            "https://www.reuters.com/world/"
-            "example-ransomware-story-2026-07-14"
-        ),
-        (
-            "https://www.reuters.com/legal/government/"
-            "example-cyber-law-story-2026-07-14"
-        ),
-    )
-
-    for url in valid_urls:
-        with self.subTest(url=url):
-            self.assertTrue(
-                executive_article_url_allowed(source, url)
+    class PipelineTests(unittest.TestCase):
+        """Validate failure isolation, exposure mapping and report rendering."""
+    
+        def setUp(self) -> None:
+            self.now = datetime.now(timezone.utc)
+            self.item = Item(
+                title="Actively exploited Fortinet authentication bypass",
+                summary=(
+                    "Attackers exploit an internet-facing Fortinet flaw against "
+                    "European energy and managed-service organisations."
+                ),
+                link="https://example.invalid/fortinet",
+                published=self.now,
+                source="Sample Vendor",
+                vendor="Fortinet",
+                section="Fortinet",
+                category="Active exploitation",
+                score=105,
+                cves=["CVE-2026-12345"],
+                exploited=True,
+                kev=True,
+                affected="Internet-facing Fortinet systems.",
+                action="Patch and investigate exposed appliances.",
+                why="The flaw can provide initial access.",
+            )
+            self.news = NewsLink(
+                title="Ransomware group claims Nordic retail supplier",
+                link="https://example.invalid/ransomware",
+                source="Sample News",
+                published=self.now,
+                score=78,
+                tags=[
+                    "Dark Web/Exposure",
+                    "Nordics",
+                    "Retail/Hospitality/Property",
+                ],
+                summary=(
+                    "A ransomware claim alleges stolen customer data from a "
+                    "Nordic retail supplier."
+                ),
             )
 
-    invalid_urls = (
-        "https://www.reuters.com/technology/cybersecurity/",
-        "https://www.reuters.com/video/example/",
-        "https://www.reuters.com/world/",
-        "https://example.com/technology/fake-2026-07-14/",
-    )
+        def test_reuters_article_url_validation(self) -> None:
+        source = {
+            "allowed_hosts": (
+                "www.reuters.com",
+                "reuters.com",
+            ),
+            "article_path_regex": (
+                r"^/(technology|world|legal|business|sustainability)/"
+                r".+-\d{4}-\d{2}-\d{2}/?$"
+            ),
+            "exclude": (
+                "/video/",
+                "/pictures/",
+                "/graphics/",
+                "/commentary/",
+            ),
+        }
 
-    for url in invalid_urls:
-        with self.subTest(url=url):
-            self.assertFalse(
-                executive_article_url_allowed(source, url)
-            )
+        valid_urls = (
+            (
+                "https://www.reuters.com/technology/"
+                "example-cyber-story-2026-07-14"
+            ),
+            (
+                "https://www.reuters.com/world/"
+                "example-ransomware-story-2026-07-14"
+            ),
+            (
+                "https://www.reuters.com/legal/government/"
+                "example-cyber-law-story-2026-07-14"
+            ),
+        )
+
+        for url in valid_urls:
+            with self.subTest(url=url):
+                self.assertTrue(
+                    executive_article_url_allowed(source, url)
+                )
+
+        invalid_urls = (
+            "https://www.reuters.com/technology/cybersecurity/",
+            "https://www.reuters.com/video/example/",
+            "https://www.reuters.com/world/",
+            "https://example.com/technology/fake-2026-07-14/",
+        )
+
+        for url in invalid_urls:
+            with self.subTest(url=url):
+                self.assertFalse(
+                    executive_article_url_allowed(source, url)
+                )
 
     def test_bankinfosecurity_article_url_validation(self) -> None:
         source = {
@@ -156,7 +156,7 @@ class PipelineTests(unittest.TestCase):
                 "/latest-news",
             ),
         }
-    
+
         self.assertTrue(
             executive_article_url_allowed(
                 source,
@@ -167,27 +167,27 @@ class PipelineTests(unittest.TestCase):
                 ),
             )
         )
-    
+
         invalid_urls = (
             "https://www.bankinfosecurity.com/latest-news",
             "https://www.bankinfosecurity.com/topics/ransomware",
             "https://www.bankinfosecurity.com/webinars/example",
             "https://www.bankinfosecurity.com/",
         )
-    
+
         for url in invalid_urls:
             with self.subTest(url=url):
                 self.assertFalse(
                     executive_article_url_allowed(source, url)
                 )
-    
+
     def test_article_url_canonicalisation(self) -> None:
         url = (
             "http://www.bankinfosecurity.com/"
             "example-security-story-a-12345/"
             "?utm_source=newsletter#article"
         )
-    
+
         self.assertEqual(
             canonicalise_article_url(url),
             (
