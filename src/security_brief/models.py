@@ -1,3 +1,9 @@
+# Copyright © 2026 John-Helge Gantz. All rights reserved.
+#
+# Proprietary and confidential.
+# Unauthorised use, copying, modification or distribution is prohibited.
+# See the LICENSE file at the repository root for complete terms.
+
 """Data models shared by collectors, analysis, rendering and orchestration.
 
 The models intentionally contain no network or rendering behaviour. Keeping the
