@@ -7,7 +7,32 @@ from __future__ import annotations
 
 from .models import Source
 
+
 EXECUTIVE_NEWS_RSS = (
+    {
+        "name": "Reuters Cybersecurity",
+        "url": (
+            "https://www.bing.com/news/search"
+            "?q=site%3Areuters.com+"
+            "%28cybersecurity+OR+ransomware+OR+hackers+"
+            "OR+cyberattack%29"
+            "&format=rss"
+        ),
+        "base_score": 14,
+        "max_items": 10,
+    },
+    {
+        "name": "BankInfoSecurity",
+        "url": (
+            "https://www.bing.com/news/search"
+            "?q=site%3Abankinfosecurity.com+"
+            "%28breach+OR+ransomware+OR+vulnerability+"
+            "OR+cybersecurity%29"
+            "&format=rss"
+        ),
+        "base_score": 8,
+        "max_items": 10,
+    },
     {
         "name": "Cyber Security News",
         "url": "https://cybersecuritynews.com/feed/",
@@ -30,44 +55,8 @@ EXECUTIVE_NEWS_RSS = (
     },
 )
 
+
 EXECUTIVE_NEWS_HTML = (
-    {
-        "name": "Reuters Cybersecurity",
-        "url": "https://www.reuters.com/technology/cybersecurity/",
-        "base_score": 14,
-
-        # Reuters places article links in several parts of the page.
-        # The article_path_regex below performs the important filtering.
-        "selectors": (
-            "main a[href]",
-        ),
-
-        "allowed_hosts": (
-            "www.reuters.com",
-            "reuters.com",
-        ),
-    
-        # Reuters article URLs normally end with a publication date.
-        # Cybersecurity stories can appear under technology, world,
-        # legal, business or sustainability.
-        "article_path_regex": (
-            r"^/(technology|world|legal|business|sustainability)/"
-            r".+-\d{4}-\d{2}-\d{2}/?$"
-        ),
-    
-        "exclude": (
-            "/video/",
-            "/pictures/",
-            "/graphics/",
-            "/podcasts/",
-            "/commentary/",
-            "/breakingviews/",
-            "/sponsored-content/",
-            "/press-releases/",
-        ),
-    
-        "max_candidates": 35,
-    },
     {
         "name": "The Record",
         "url": "https://therecord.media/",
@@ -77,7 +66,9 @@ EXECUTIVE_NEWS_HTML = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        "include": ("therecord.media",),
+        "include": (
+            "therecord.media",
+        ),
         "exclude": (
             "/tag/",
             "/author/",
@@ -94,7 +85,9 @@ EXECUTIVE_NEWS_HTML = (
             "h2 a[href]",
             "h3 a[href]",
         ),
-        "include": ("cybersecuritydive.com",),
+        "include": (
+            "cybersecuritydive.com",
+        ),
         "exclude": (
             "/press-release/",
             "/library/",
@@ -112,7 +105,9 @@ EXECUTIVE_NEWS_HTML = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        "include": ("darkreading.com",),
+        "include": (
+            "darkreading.com",
+        ),
         "exclude": (
             "/webinars/",
             "/resources/",
@@ -120,42 +115,6 @@ EXECUTIVE_NEWS_HTML = (
             "sponsored",
             "partner",
         ),
-    },
-    {
-        "name": "BankInfoSecurity",
-        "url": "https://www.bankinfosecurity.com/latest-news",
-        "base_score": 8,
-    
-        # Current news articles appear as heading links.
-        "selectors": (
-            "main h2 a[href]",
-            "h2 a[href*='-a-']",
-            "h5 a[href*='-a-']",
-        ),
-    
-        "allowed_hosts": (
-            "www.bankinfosecurity.com",
-            "bankinfosecurity.com",
-        ),
-    
-        # BankInfoSecurity article paths use:
-        # /article-title-a-32224
-        "article_path_regex": (
-            r"^/[a-z0-9][a-z0-9-]*-a-\d+/?$"
-        ),
-    
-        "exclude": (
-            "/webinars/",
-            "/events/",
-            "/training/",
-            "/calendar/",
-            "/authors/",
-            "/topics/",
-            "/latest-news",
-            "/search",
-        ),
-    
-        "max_candidates": 35,
     },
     {
         "name": "SC World",
@@ -166,7 +125,9 @@ EXECUTIVE_NEWS_HTML = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        "include": ("scworld.com",),
+        "include": (
+            "scworld.com",
+        ),
         "exclude": (
             "/resource/",
             "/events/",
@@ -182,7 +143,9 @@ EXECUTIVE_NEWS_HTML = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        "include": ("industrialcyber.co",),
+        "include": (
+            "industrialcyber.co",
+        ),
         "exclude": (
             "/events/",
             "/webinars/",
@@ -190,6 +153,7 @@ EXECUTIVE_NEWS_HTML = (
         ),
     },
 )
+
 
 EXECUTIVE_NEWS_SOURCE_LIMITS = {
     "Reuters Cybersecurity": 2,
@@ -204,6 +168,7 @@ EXECUTIVE_NEWS_SOURCE_LIMITS = {
     "SC World": 1,
     "Industrial Cyber": 2,
 }
+
 
 RSS_SOURCES = (
     Source(
@@ -241,7 +206,6 @@ RSS_SOURCES = (
         base_score=24,
         section="Vulnerability Research",
     ),
-
     Source(
         name="Google Security Blog",
         vendor="Google",
@@ -279,6 +243,7 @@ RSS_SOURCES = (
     ),
 )
 
+
 HTML_SOURCES = (
     Source(
         name="Cisco Talos",
@@ -291,7 +256,9 @@ HTML_SOURCES = (
             "h2 a[href]",
             "h3 a[href]",
         ),
-        include_patterns=("blog.talosintelligence.com",),
+        include_patterns=(
+            "blog.talosintelligence.com",
+        ),
         exclude_patterns=(
             "/search/",
             "/p/",
@@ -311,7 +278,9 @@ HTML_SOURCES = (
             "a[href*='/psirt/FG-IR-']",
             "a[href*='/psirt/fg-ir-']",
         ),
-        include_patterns=("/psirt/",),
+        include_patterns=(
+            "/psirt/",
+        ),
         max_candidates=40,
     ),
     Source(
@@ -325,7 +294,9 @@ HTML_SOURCES = (
             "h2 a[href]",
             "h3 a[href]",
         ),
-        include_patterns=("/blog/threat-research/",),
+        include_patterns=(
+            "/blog/threat-research/",
+        ),
         exclude_patterns=(
             "/blog/threat-research$",
             "customer-success",
@@ -349,7 +320,9 @@ HTML_SOURCES = (
             "article a[href]",
             "table a[href]",
         ),
-        include_patterns=("hpesb",),
+        include_patterns=(
+            "hpesb",
+        ),
         max_candidates=45,
     ),
     Source(
@@ -364,7 +337,9 @@ HTML_SOURCES = (
             "h2 a[href]",
             "h3 a[href]",
         ),
-        include_patterns=("support.apple.com",),
+        include_patterns=(
+            "support.apple.com",
+        ),
         exclude_patterns=(
             "/guide/",
             "/contact",
@@ -384,8 +359,12 @@ HTML_SOURCES = (
             "h3 a[href]",
             "article a[href]",
         ),
-        include_patterns=("sec.okta.com/articles/",),
-        exclude_patterns=("/articles/$",),
+        include_patterns=(
+            "sec.okta.com/articles/",
+        ),
+        exclude_patterns=(
+            "/articles/$",
+        ),
         max_candidates=25,
     ),
     Source(
@@ -400,7 +379,9 @@ HTML_SOURCES = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        include_patterns=("enisa.europa.eu",),
+        include_patterns=(
+            "enisa.europa.eu",
+        ),
         exclude_patterns=(
             "/events/",
             "/about-enisa/",
@@ -423,7 +404,9 @@ HTML_SOURCES = (
             "article a[href]",
             ".news-item a[href]",
         ),
-        include_patterns=("csrc.nist.gov",),
+        include_patterns=(
+            "csrc.nist.gov",
+        ),
         exclude_patterns=(
             "/events/",
             "/projects/",
@@ -445,7 +428,9 @@ HTML_SOURCES = (
             "h2 a[href]",
             "h3 a[href]",
         ),
-        include_patterns=("pcisecuritystandards.org",),
+        include_patterns=(
+            "pcisecuritystandards.org",
+        ),
         exclude_patterns=(
             "/tag/",
             "/author/",
@@ -465,7 +450,9 @@ HTML_SOURCES = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        include_patterns=("isaca.org",),
+        include_patterns=(
+            "isaca.org",
+        ),
         exclude_patterns=(
             "/credentialing/",
             "/training-and-events/",
@@ -474,7 +461,6 @@ HTML_SOURCES = (
         ),
         max_candidates=35,
     ),
-
     Source(
         name="NSM Updates",
         vendor="NSM Norway",
@@ -488,7 +474,9 @@ HTML_SOURCES = (
             "article a[href]",
             "main a[href]",
         ),
-        include_patterns=("nsm.no/",),
+        include_patterns=(
+            "nsm.no/",
+        ),
         exclude_patterns=(
             "#",
             "kontakt",
@@ -511,7 +499,9 @@ HTML_SOURCES = (
             "article a[href]",
             ".news-item a[href]",
         ),
-        include_patterns=("iso.org",),
+        include_patterns=(
+            "iso.org",
+        ),
         exclude_patterns=(
             "/store.html",
             "/members.html",
@@ -548,7 +538,9 @@ HTML_SOURCES = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        include_patterns=("elastic.co/security-labs",),
+        include_patterns=(
+            "elastic.co/security-labs",
+        ),
         exclude_patterns=(
             "/about/",
             "/careers/",
@@ -568,7 +560,9 @@ HTML_SOURCES = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        include_patterns=("splunk.com",),
+        include_patterns=(
+            "splunk.com",
+        ),
         exclude_patterns=(
             "/events/",
             "/conf",
@@ -590,7 +584,9 @@ HTML_SOURCES = (
             "article a[href]",
             "main a[href*='/news-events/ics-advisories/']",
         ),
-        include_patterns=("/news-events/ics-advisories/",),
+        include_patterns=(
+            "/news-events/ics-advisories/",
+        ),
         exclude_patterns=(
             "/ics-advisories$",
             "#",
@@ -609,7 +605,9 @@ HTML_SOURCES = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        include_patterns=("dragos.com/blog",),
+        include_patterns=(
+            "dragos.com/blog",
+        ),
         exclude_patterns=(
             "/events/",
             "/resources/",
@@ -629,7 +627,9 @@ HTML_SOURCES = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        include_patterns=("claroty.com",),
+        include_patterns=(
+            "claroty.com",
+        ),
         exclude_patterns=(
             "/events/",
             "/webinars/",
@@ -649,7 +649,9 @@ HTML_SOURCES = (
             "main h3 a[href]",
             "article a[href]",
         ),
-        include_patterns=("nozominetworks.com/blog",),
+        include_patterns=(
+            "nozominetworks.com/blog",
+        ),
         exclude_patterns=(
             "/events/",
             "/webinars/",
@@ -671,7 +673,9 @@ HTML_SOURCES = (
             "main a[href*='/news/press-releases/']",
             "main a[href*='/news/stories/']",
         ),
-        include_patterns=("fbi.gov/",),
+        include_patterns=(
+            "fbi.gov/",
+        ),
         exclude_patterns=(
             "/wanted/",
             "/contact-us/",
@@ -718,7 +722,9 @@ HTML_SOURCES = (
             "h2 a[href]",
             "h3 a[href]",
         ),
-        include_patterns=("nsm.no/",),
+        include_patterns=(
+            "nsm.no/",
+        ),
         exclude_patterns=(
             "#",
             "/2026/",
