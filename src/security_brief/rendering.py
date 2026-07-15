@@ -748,6 +748,20 @@ def render_text_report(
         ]
     )
 
+    text.extend(
+        [
+            "",
+            "Ownership",
+            "---------",
+            (
+                "Daily Security Brief © 2026 John-Helge Gantz. "
+                "Report format and software implementation are proprietary. "
+                "Third-party source content remains the property of its "
+                "respective publishers."
+            ),
+        ]
+    )
+    
     if warnings:
         text.extend(["", "Source Warnings", "---------------"])
         text.extend(f"- {warning}" for warning in warnings)
