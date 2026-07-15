@@ -1,0 +1,21 @@
+# Third-party notices
+
+Daily Security Brief uses third-party Python packages and external data
+sources. Each component remains subject to its own terms and licence.
+
+## Python dependencies
+
+| Component | Purpose | Licence |
+|---|---|---|
+| beautifulsoup4 | HTML parsing | MIT |
+| feedparser | RSS and Atom parsing | BSD |
+| python-dateutil | Date parsing | Apache-2.0 / BSD |
+| requests | HTTP client | Apache-2.0 |
+
+## External data and services
+
+Use of external feeds and APIs remains subject to the terms of the relevant
+provider, including CISA, NVD, HIBP and individual publishers.
+
+No ownership is claimed over third-party advisories, trademarks, articles or
+data.
