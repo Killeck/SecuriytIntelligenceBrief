@@ -1,91 +1,84 @@
-# SecurityIntelligenceBrief v4.2
+# Daily Security Brief
 
-My personally customised cybersecurity intelligence briefing, designed to keep me current on significant security developments, emerging threats, external exposure and relevant governance changes.
+**Version 5.0**
 
-SecurityIntelligenceBrief is a no-LLM, no-cloud-resource-cost pipeline built with Python, GitHub Actions and Gmail SMTP.
+A Python and GitHub Actions cybersecurity intelligence pipeline for Security
+Advisors, Technical Account Managers, SOC advisory functions, CISOs and
+customer-facing security teams.
 
-The pipeline collects structured intelligence from official advisories, vulnerability databases, vendor research, threat-intelligence sources, standards and governance publications, law-enforcement reporting, breach metadata and a curated set of cybersecurity news providers.
+Version 4.3 retains the broad CISO intelligence coverage introduced in v4.0,
+including critical vulnerabilities, active exploitation, Microsoft, Fortinet,
+HPE and Aruba, cloud and identity, SOC detection, OT and energy, Scandinavia,
+compliance, standards and GRC.
 
-It applies deterministic relevance scoring, deduplication, CVSS enrichment, exposure classification, sector filtering and source-confidence labelling before delivering a daily HTML and plain-text briefing.
+The executive layer is refocused toward actionable Security Advisory and
+external-exposure intelligence:
 
-The Executive Summary focuses on actionable Security Advisory and dark-web-related exposure intelligence, while retaining the broader technical, operational and CISO-level coverage required to understand the overall security landscape.
+- Dark-web and criminal-ecosystem developments
+- Ransomware and extortion activity
+- Credential exposure and stealer logs
+- Data breaches and leaks
+- Initial-access brokers and cybercrime services
+- Brand impersonation and phishing infrastructure
+- Customer, supplier and sector exposure
+- Priority vulnerability and vendor advisories
+- SOC detection and response opportunities
 
-See the [changelog](https://github.com/Killeck/SecuriytIntelligenceBrief/blob/main/changelog.md) for the complete development history.
+The report presents two related levels:
 
----
-## Version 5.0 - 2026-07-15
+- **Security Advisory Level:** immediate exposure and customer-advisory impact.
+- **Enterprise Cyber Threat Level:** the retained DEFCON-style CISO view based
+  on exploitation, ransomware, nation-state and vulnerability intelligence.
 
-Taking the mondane textual reporting to a HTML render that now produces a compact report, with improved visuals and readability, now in the form of dashboard with visual mock-up.
+The pipeline uses public and authorised sources. It does **not** connect to
+onion services, criminal forums, ransomware leak sites, stolen-data
+repositories or illicit marketplaces.
 
-### Added
-- Six headline metric cards for:
-  - Overall threat level
-  - Active exploitation
-  - 0-days
-  - Dark-web and exposure signals
-  - Governance Changes
-- Executive Summary in TL;DR format (Well attempted)
-- Critical vuln. table with severity, vendor, CVE, CVSS, Exploit status and one-line summary
-- Compact active exploitation and threat-activity rows
-- Dark-web and exposure mini-cards with confidnce and action
-- Vendor update mini-cards
-- Standards, compliance and governance mini-cards
-- Recommended Actions Today Checkis Cards
-- Compact relevant-news and sector-impact panesl
-- Email-client-compatible dark theme useing nested tables and inline CSS
 
-### Changed
-- Replaced long advisory cards and repeated paragraphs with consice TL;DR rows
-- Kept technical, SOC, OT, regional, compliance, standards and GRC coverage in compact detail section below the dashboard
-- Updated workflow and package version to 5.0
+## Version 5.0 email layout
 
-### Retained
-- All v4.2 collectors and source coverage
-- Security Advisory Level and Enterprise DEFCON-style threat level
-- CISA KEV and NVD enrichment
-- Dark-web and HIBP exposure monitoring
-- Daily 07:07 Europe/Oslo delivery
-- Plain-text fallback email
-- Parallel source collection and regression tests
-  
----
+Version 5.0 replaces the long-form HTML email with a compact, dark,
+dashboard-style daily digest.
 
-## Version 4.2
+The email now begins with:
 
-Version 4.2 focuses on code efficiency, maintainability and runtime performance, and is an optimised modular release.
+- Six headline metrics
+- Executive TL;DR
+- Critical vulnerability table
+- Active exploitation and actor activity
+- Dark-web and exposure cards
+- Vendor mini-cards
+- Standards, compliance and governance cards
+- Recommended actions for the day
 
-### Changes
+Long paragraphs are converted into one-line summaries, status pills and
+short action statements. Full technical and CISO coverage remains available
+below the dashboard in compact sections.
 
-* Replaced the single large Python file with a modular package.
-* Added parallel source collection with configurable worker count.
-* Added reusable HTTP sessions, retries and backoff.
-* Reduced duplicated collection and error-handling logic.
-* Split report preparation, text rendering and HTML rendering.
-* Added automated regression tests to both GitHub Actions workflows.
-* Kept the existing execution command and report output compatible with v4.1.
-
----
+The renderer uses nested HTML tables and inline CSS for compatibility with
+Gmail, Outlook and other restrictive email clients. No JavaScript, external
+stylesheet or hosted dashboard is required.
 
 ## Core behaviour
 
-* Runs automatically at **07:07 Europe/Oslo**.
-* Uses the previous **72 hours on Mondays**.
-* Uses the previous **36 hours Tuesday through Sunday**.
-* Emails the report through Gmail SMTP.
-* Uses no paid LLM, Azure resource, database or hosted application.
-* Continues processing when an individual source fails.
-* Suppresses report sections that contain no qualifying information.
-* Collapses successful zero-result sources into one quiet summary line.
-* Keeps failed sources visible under **Source Coverage** and **Source Warnings**.
-* Separates verified exposure information from unconfirmed or secondary reporting.
-* Does not connect directly to onion services, criminal forums, ransomware leak sites or stolen-data repositories.
+- Runs automatically at **07:07 Europe/Oslo**.
+- Uses the previous **72 hours on Mondays**.
+- Uses the previous **36 hours Tuesday through Sunday**.
+- Emails a formatted HTML and plain-text advisory through Gmail SMTP.
+- Uses no LLM and no paid cloud infrastructure.
+- Continues when individual sources fail.
+- Suppresses empty report sections.
+- Collapses successful zero-result sources into one quiet summary line.
+- Keeps failed sources visible in Source Coverage and Source Warnings.
+- Labels exposure claims by confidence rather than presenting all claims as
+  confirmed incidents.
 
 ## Report structure
 
-### Executive Security Advisory Summary
+### Executive Security Advisory Overview
 
 1. Security Advisory Level
-2. Enterprise DEFCON-style Cyber Threat Level
+2. Enterprise Cyber Threat Level
 3. Priority Security Advisories
 4. Dark Web and Exposure Highlights
 5. Ransomware and Extortion Watch
@@ -94,7 +87,7 @@ Version 4.2 focuses on code efficiency, maintainability and runtime performance,
 8. Zero-Day and CVSS 10.0
 9. Customer and Sector Advisory Impact
 10. Recommended Security Advisory Actions
-11. Compliance, Standards and Governance Changes
+11. Relevant Compliance and Governance Changes
 12. Going Live Today or Within 14 Days
 
 ### Exposure intelligence sections
@@ -106,7 +99,7 @@ Version 4.2 focuses on code efficiency, maintainability and runtime performance,
 5. Brand, Impersonation and Phishing
 6. Dark Web and Criminal Ecosystem
 
-### Technical and CISO intelligence sections
+### Technical and advisory sections
 
 1. Active Exploitation and CISA KEV
 2. Law-Enforcement and Criminal Ecosystem Reporting
@@ -124,36 +117,164 @@ Version 4.2 focuses on code efficiency, maintainability and runtime performance,
 14. Compliance
 15. Standards
 16. GRC
-17. Upcoming Compliance, Standards and Governance
-18. Source Coverage
-19. Security Advisory and CISO Watch List
+17. Source Coverage
+18. Security Advisory and CISO Watch List
 
 Empty sections are not displayed.
 
-## Threat-level model
+## Confidence model
 
-The report uses an internal DEFCON-style cyber-risk scale. It is not the official United States military DEFCON status.
+Exposure signals are explicitly labelled.
 
-| Level | Label | Colour | Typical trigger |
-|---|---|---|---|
-| DEFCON 1 | Critical | Red | Exploited or zero-day CVSS 10.0 with immediate material exposure |
-| DEFCON 2 | High | Orange | Zero-day, CVSS 10.0, or ransomware-linked KEV |
-| DEFCON 3 | Elevated | Amber | KEV, active exploitation, ransomware or nation-state activity |
-| DEFCON 4 | Guarded | Blue | Relevant security developments without confirmed immediate exploitation |
-| DEFCON 5 | Low | Green | No qualifying developments collected |
+| Label | Meaning |
+|---|---|
+| `Verified` | HIBP marks the breach dataset as verified |
+| `Domain ownership verified` | Results were retrieved through an HIBP domain search after domain control was verified |
+| `Primary or research source` | Reported by a vendor, government body, recognised research organisation or technical source |
+| `Secondary reporting` | Reported by a news publication and not independently confirmed by this pipeline |
+| `Unverified dataset` | HIBP lists the breach but does not mark it as verified |
+
+A ransomware victim claim or dark-web reference is not treated as a confirmed
+incident unless corroborated by the affected organisation, law enforcement or
+another reliable source.
+
+## Dark-web and exposure sources
+
+### Have I Been Pwned public breach metadata
+
+The pipeline queries the public HIBP breach catalogue and includes breach
+records added inside the reporting window.
+
+It extracts:
+
+- Breach title and domain
+- Date added
+- Original breach date where available
+- Verification status
+- Account count
+- Exposed data classes
+- Malware or stealer-log classification
+- Recommended security-advisory actions
+
+Spam lists and retired breaches are excluded.
+
+### Optional HIBP verified-domain monitoring
+
+Organisation-specific domain monitoring is optional.
+
+Configure:
+
+```text
+HIBP_API_KEY
+MONITORED_DOMAINS
+```
+
+`MONITORED_DOMAINS` is a comma-separated list:
+
+```text
+example.com,example.org
+```
+
+The HIBP domain endpoint requires:
+
+- An HIBP subscription key
+- Verification that the subscriber controls the domain
+
+The report deliberately does not include exposed email aliases. It reports
+only:
+
+- Number of affected aliases
+- Number and names of associated breach datasets
+- Domain-level response recommendations
+
+Leave `HIBP_API_KEY` and `MONITORED_DOMAINS` unset to retain a zero-cost
+deployment using public breach metadata only.
+
+### Open-source criminal-ecosystem intelligence
+
+Exposure signals are also derived from the existing primary and secondary
+sources using deterministic keyword and relevance rules.
+
+The pipeline looks for:
+
+- Ransomware victim claims
+- Extortion activity
+- Data offered for sale
+- Credential dumps
+- Stealer logs
+- Initial-access brokers
+- Cybercrime forums and markets
+- Malware-, ransomware- and phishing-as-a-service
+- Bulletproof hosting
+- Brand impersonation
+- Typosquatting
+- Adversary-in-the-middle phishing
+- Criminal infrastructure disruption
+- Sanctions and law-enforcement activity
+
+### FBI Cyber News
+
+FBI cybercrime news and press releases are filtered for:
+
+- Ransomware
+- Stolen access
+- Infostealers
+- Cybercrime markets
+- Extortion
+- Phishing
+- Botnets
+- Criminal-service disruption
+- Sanctions and takedowns
+
+## Optional monitored references
+
+The report can increase the relevance of stories that mention selected
+organisations, products or domains.
+
+Configure comma-separated GitHub secrets:
+
+```text
+MONITORED_BRANDS
+MONITORED_DOMAINS
+```
+
+Example:
+
+```text
+MONITORED_BRANDS=NetNordic,Customer Name,Important Supplier
+MONITORED_DOMAINS=netnordic.com,customer.example
+```
+
+These values are included in the emailed advisory when a match is configured.
+Use GitHub secrets rather than repository variables when customer names or
+domains should not be visible to every repository collaborator.
+
+## Security advisory level
+
+The report uses a five-level advisory scale:
+
+| Level | Meaning |
+|---|---|
+| Critical | Immediate material exposure or a critical verified signal |
+| High | High-severity exposure, active exploitation or major credential risk |
+| Elevated | Relevant ransomware, breach, nation-state or exposure activity |
+| Guarded | Relevant developments without immediate confirmed exposure |
+| Low | No qualifying developments or exposure signals |
+
+The email subject uses the label rather than the previous DEFCON terminology.
 
 ## Source hierarchy
 
-### Authoritative vulnerability and exploitation sources
+### Authoritative vulnerabilities and exploitation
 
 - CISA Known Exploited Vulnerabilities
-- NIST National Vulnerability Database API
+- NIST National Vulnerability Database
 - Fortinet PSIRT
 - HPE Security Bulletin Library
 - Apple Security Releases
 - CISA ICS Advisories
 
-### Vendor, threat-research and technical sources
+### Vendor, research and technical intelligence
 
 - Microsoft Security Blog
 - AWS Security Blog
@@ -167,25 +288,30 @@ The report uses an internal DEFCON-style cyber-risk scale. It is not the officia
 - Elastic Security Labs
 - Splunk Security Blog
 - The DFIR Report
-- SigmaHQ Releases
+- SigmaHQ
 - Dragos
 - Claroty Team82
 - Nozomi Networks Labs
 
-### Compliance, standards and governance sources
+### Law-enforcement and criminal ecosystem
 
-- ENISA News
-- NIST CSRC News
+- FBI Cyber News
+- CISA ransomware and cybercrime material found through configured sources
+- Relevant official sanctions and disruption reporting discovered through
+  Reuters, The Record and other selected publications
+
+### Compliance, standards and governance
+
+- ENISA
+- NIST CSRC
 - PCI Security Standards Council
-- ISACA News and Trends
+- ISACA
 - ISO News
 - NSM Updates
 - NSM Security Warnings
 - Local upcoming-governance register
 
-### Secondary cyber-news discovery sources
-
-These sources provide one-line discovery links in the Executive Summary. They do not determine CVSS, KEV status, exploitation status, compliance conclusions or remediation actions.
+### Secondary discovery
 
 - Reuters Cybersecurity
 - SecurityWeek
@@ -199,37 +325,12 @@ These sources provide one-line discovery links in the Executive Summary. They do
 - SC World
 - Industrial Cyber
 
-## Relevance profile
+Secondary discovery sources do not determine CVSS, KEV status, breach
+verification or remediation priority on their own.
 
-Relevant Cyber News is scored against the following priorities.
+## Customer and sector relevance
 
-### Technology
-
-- Microsoft Azure
-- Entra ID
-- Microsoft 365
-- Defender
-- Sentinel
-- Active Directory
-- Fortinet products
-- HPE and Aruba
-- SOC, SIEM, XDR, MDR and EDR
-- Cloud and identity security
-- Detection engineering and incident response
-
-### Geography
-
-- Norway
-- Sweden
-- Denmark
-- Finland
-- Iceland
-- Scandinavia
-- Nordics
-- Europe
-- European Union and EEA
-
-### Customer sectors
+The report continues to prioritise:
 
 - Oil and gas
 - Offshore
@@ -247,110 +348,42 @@ Relevant Cyber News is scored against the following priorities.
 - Managed service providers
 - Telecom and hosting providers
 
-### High-impact modifiers
+## Optimised architecture
 
-Extra relevance weight is applied to:
-
-- Zero-days
-- Active exploitation
-- Ransomware
-- Major breaches
-- Supply-chain compromise
-- Nation-state activity
-- Remote code execution
-- Authentication bypass
-
-The Executive Summary defaults to a maximum of ten relevant cyber-news links and enforces per-publisher limits.
-
-## SOC and Detection Engineering
-
-The pipeline creates deterministic detection opportunities from the collected primary intelligence.
-
-Current templates cover:
-
-- Identity and token abuse
-- Active exploitation
-- Critical vulnerabilities
-- Ransomware
-- Cloud control-plane activity
-- Software supply-chain compromise
-- Nation-state activity
-- OT and ICS behaviour
-- General threat hunting
-
-Each detection opportunity contains:
-
-- Supporting development
-- Suggested detection focus
-- Recommended telemetry
-- MITRE ATT&CK mapping
-- Link to the supporting source
-
-These are starting points for validation, not production-ready detection rules.
-
-## Sector and Customer Impact
-
-The Executive Summary produces up to five sector-impact statements based on the collected stories.
-
-Supported sectors:
-
-- Oil, Gas and Energy
-- Retail and E-commerce
-- Hospitality and Travel
-- Public Sector and Municipalities
-- Healthcare
-- Finance and Insurance
-- Research and Education
-- Transport and Maritime
-- Property, Housing and Construction
-- Managed Services, Telecom and Hosting
-
-## Compliance and standards monitoring
-
-The report monitors:
-
-- NSM updates
-- Sikkerhetsloven
-- NIS2
-- DORA
-- GDPR
-- PCI DSS
-- ISO/IEC 27001
-- ISO 50001
-- ISO 9001
-- ISO 14001
-- ISO/IEC 33000 series
-- NIST CSF, RMF and SP 800 publications
-- Certification and transition deadlines
-- Governance, risk, audit and assurance developments
-
-## Upcoming governance register
-
-The file below stores confirmed effective dates or deadlines announced outside the normal 36/72-hour reporting window:
+Version 4.3 retains the modular package introduced in v4.2 and replaces the previous long-form HTML presentation with a compact dashboard renderer. The command used by GitHub Actions remains unchanged:
 
 ```text
-config/upcoming_governance.json
+python src/send_security_advisory.py
 ```
 
-Example:
+The entry point now delegates to focused modules:
 
-```json
-{
-  "events": [
-    {
-      "enabled": true,
-      "date": "2026-08-02",
-      "title": "Confirmed regulatory milestone",
-      "topic": "Applicable regulation",
-      "source": "Official authority",
-      "source_url": "https://official-source.example",
-      "notes": "Practical effect and affected organisations."
-    }
-  ]
-}
-```
+- `app.py` — runtime settings, orchestration and bounded parallel collection.
+- `collectors.py` — RSS, HTML, HIBP, CISA KEV and NVD adapters.
+- `http_client.py` — thread-local connection pooling and transient-failure
+  retries.
+- `analysis.py` — classification, prioritisation, exposure and sector logic.
+- `rendering.py` — shared report context plus separate plain-text and HTML renderers.
+- `governance.py` — future compliance and standards milestones.
+- `sources.py` — configured intelligence sources.
+- `rules.py` — deterministic scoring and classification rules.
+- `models.py` — shared data contracts.
+- `delivery.py` — Gmail SMTP delivery.
 
-Only enabled events occurring today or within the configured 14-day horizon are included.
+Independent sources are fetched concurrently using a bounded worker pool. The
+default is eight workers, configurable through `SOURCE_WORKERS`. Source
+Coverage remains in its configured order even though requests execute in
+parallel.
+
+The HTTP layer creates one reusable session per worker thread, reducing repeated
+TLS and connection setup. Transient HTTP 429 and 5xx responses receive bounded
+retries with backoff and `Retry-After` support.
+
+The previous report output was regression-compared against the modular
+implementation using deterministic fixtures. Offline unit tests now run in both
+GitHub Actions workflows before email delivery.
+
+See `OPTIMISATION.md` for the detailed before-and-after design notes.
 
 ## Repository structure
 
@@ -363,69 +396,65 @@ Only enabled events occurring today or within the configured 14-day horizon are 
 ├── config/
 │   └── upcoming_governance.json
 ├── src/
-│   └── send_combined_brief.py
+│   ├── security_brief/
+│   │   ├── __init__.py
+│   │   ├── analysis.py
+│   │   ├── app.py
+│   │   ├── collectors.py
+│   │   ├── config.py
+│   │   ├── delivery.py
+│   │   ├── governance.py
+│   │   ├── http_client.py
+│   │   ├── models.py
+│   │   ├── rendering.py
+│   │   ├── rules.py
+│   │   ├── sources.py
+│   │   └── utils.py
+│   └── send_security_advisory.py
+├── tests/
+│   └── test_smoke.py
 ├── CHANGELOG.md
+├── OPTIMISATION.md
 ├── README.md
 ├── VERSION
 └── requirements.txt
 ```
 
-## Requirements
+## Required GitHub secrets
 
-- A private or public GitHub repository
-- GitHub Actions enabled
-- Python 3.12
-- A Gmail account with two-step verification
-- A Gmail App Password
-- Optional free NVD API key
-
-Python dependencies:
-
-```text
-beautifulsoup4
-feedparser
-python-dateutil
-requests
-```
-
-## GitHub secrets
-
-Create the following under:
+Create under:
 
 ```text
 Settings → Secrets and variables → Actions
 ```
 
-Required:
+| Secret | Required | Purpose |
+|---|---|---|
+| `GMAIL_USERNAME` | Yes | Gmail sender address |
+| `GMAIL_APP_PASSWORD` | Yes | Gmail App Password |
+| `EMAIL_TO` | Yes | Advisory recipient |
+| `NVD_API_KEY` | No | Faster NVD enrichment |
+| `HIBP_API_KEY` | No | Verified-domain HIBP monitoring |
+| `MONITORED_DOMAINS` | No | Comma-separated customer or organisation domains |
+| `MONITORED_BRANDS` | No | Comma-separated organisation or brand names |
 
-| Secret | Value |
-|---|---|
-| `GMAIL_USERNAME` | Full Gmail sender address |
-| `GMAIL_APP_PASSWORD` | Gmail App Password |
-| `EMAIL_TO` | Destination email address |
-
-Optional:
-
-| Secret | Purpose |
-|---|---|
-| `NVD_API_KEY` | Faster NVD enrichment and higher practical request capacity |
-
-Do not store secret values in source files, workflow files or the README.
+Do not store these values in source files or workflow files.
 
 ## Installation
 
-1. Copy the v4.0 files into the repository.
-2. Commit them to the default branch, normally `main`.
-3. Confirm the three required GitHub secrets exist.
-4. Optionally add `NVD_API_KEY`.
-5. Disable previous scheduled briefing workflows.
-6. Run the test workflow manually.
-7. Leave only the v4.0 production workflow enabled for scheduled delivery.
+1. Copy the v4.3 repository files into the project.
+2. Remove or disable the previous v4.0 workflows.
+3. Confirm the three required Gmail secrets.
+4. Add optional NVD and HIBP secrets where applicable.
+5. Add monitored brands and domains only when required.
+6. Commit to the default branch.
+7. Run the test workflow.
+8. Leave only the v4.3 production workflow enabled for scheduled delivery.
 
-Suggested commit message:
+Suggested commit:
 
 ```text
-Release Daily CISO Security Briefing v4.0
+Release Daily Security Brief v4.3
 ```
 
 ## Manual test
@@ -433,80 +462,92 @@ Release Daily CISO Security Briefing v4.0
 Open:
 
 ```text
-Actions → Test Daily CISO Security Briefing v4.0 → Run workflow
+Actions → Test Daily Security Brief v4.3
 ```
 
-Recommended first test:
+Recommended initial values:
 
 ```text
 lookback_hours: 72
 kev_lookback_days: 3
 max_items: 50
-executive_news_max: 10
+discovery_max: 12
+exposure_max: 25
 ```
 
-The wider test window is intended to populate more sections. Production uses the automatic 36/72-hour logic.
+The wider test window is intended to populate more exposure and technical
+sections.
 
-## Automatic schedule
+## Offline regression tests
 
-The production workflow runs daily at:
+Run the deterministic test suite without sending email:
+
+```bash
+PYTHONPATH=src python -m unittest discover -s tests -v
+```
+
+The tests cover source failure isolation, ordered Source Coverage, public HIBP
+mapping, exposure classification and the retained Security Advisory/CISO report
+structure.
+
+## Schedule
+
+The production workflow runs at:
 
 ```text
 07:07 Europe/Oslo
 ```
 
-The Python application determines the reporting window:
+Automatic reporting window:
 
 ```text
 Monday: 72 hours
 Tuesday–Sunday: 36 hours
 ```
 
-The workflow can still be run manually through `workflow_dispatch`.
-
 ## Environment variables
 
 | Variable | Default | Purpose |
 |---|---:|---|
-| `NEWS_LOOKBACK_HOURS` | `auto` | Uses 72 hours Monday and 36 hours otherwise |
-| `KEV_LOOKBACK_DAYS` | `auto` | Derives the KEV window from the news window |
-| `NEWS_MAX_ITEMS` | `40` | Maximum primary developments |
-| `EXEC_NEWS_MAX_ITEMS` | `10` | Maximum relevant secondary-news links |
-| `EXEC_NEWS_MIN_SCORE` | `24` | Minimum relevance score |
-| `UPCOMING_GOVERNANCE_DAYS` | `14` | Future compliance and standards horizon |
-| `NVD_MAX_CVES` | Key-dependent | Maximum individual NVD enrichment requests |
-| `UPCOMING_GOVERNANCE_FILE` | `config/upcoming_governance.json` | Governance register location |
+| `NEWS_LOOKBACK_HOURS` | `auto` | Automatic 36/72-hour window |
+| `KEV_LOOKBACK_DAYS` | `auto` | KEV collection window |
+| `NEWS_MAX_ITEMS` | `40` | Maximum primary advisories |
+| `EXEC_NEWS_MAX_ITEMS` | `10` | Maximum discovery links |
+| `EXPOSURE_MAX_ITEMS` | `20` | Maximum dark-web and exposure signals |
+| `EXEC_NEWS_MIN_SCORE` | `24` | Minimum discovery relevance |
+| `UPCOMING_GOVERNANCE_DAYS` | `14` | Governance horizon |
+| `SOURCE_WORKERS` | `8` | Parallel source workers, bounded between 1 and 16 |
+| `MONITORED_BRANDS` | Empty | Optional monitored organisation names |
+| `MONITORED_DOMAINS` | Empty | Optional monitored domains |
+| `HIBP_API_KEY` | Empty | Optional HIBP authenticated monitoring |
+| `NVD_API_KEY` | Empty | Optional NVD request key |
 
-## Source Coverage
+## Privacy and handling controls
 
-Source Coverage differentiates between:
-
-- **Checked with findings:** source returned qualifying items.
-- **Checked without findings:** source worked but had no relevant item inside the reporting window.
-- **Failed:** source could not be downloaded or parsed.
-
-Successful zero-result sources are collapsed into one summary line. Failures remain visible with error details.
-
-## Security considerations
-
-- Use a dedicated Gmail account for automated sending.
-- Store credentials only in GitHub Actions secrets.
-- Keep workflow permissions at `contents: read`.
-- Review external-source HTML selectors when a source repeatedly returns no candidates.
-- Treat all downloaded content as untrusted input.
-- Do not execute downloaded content.
-- Use the optional NVD API key only through repository secrets.
-- Pin GitHub Actions to full commit hashes if stricter supply-chain control is required.
-- Add dependency scanning, Dependabot and `pip-audit` for ongoing maintenance.
+- Do not add personal email addresses to `MONITORED_DOMAINS`.
+- Use only organisation-owned domains that the HIBP account is authorised to
+  search.
+- The report does not display HIBP email aliases.
+- Do not forward exposure reports outside the authorised advisory or incident
+  team without reviewing their contents.
+- Treat dark-web claims as intelligence leads, not proof.
+- Confirm exposure before contacting a named organisation or customer.
+- Do not access or download stolen data to validate a claim.
+- Do not contact threat actors.
+- Follow legal, contractual and incident-response requirements.
 
 ## Known limitations
 
-- The pipeline does not use an LLM and therefore cannot perform deep semantic analysis.
-- “Why it matters”, actions and detection guidance use deterministic templates.
-- HTML-based sources may change layouts.
-- Some pages are dynamically rendered and may return no parsable content.
-- Secondary publications may repeat the same underlying story.
-- Deduplication is title-, CVE- and URL-based rather than semantic.
-- There is not yet persistent state across runs, so a story can repeat while it remains inside the reporting window.
-- The upcoming governance register requires manual maintenance for events announced well before their effective dates.
-- Source availability and robots or access controls can change.
+- No direct dark-web or onion-site collection.
+- No LLM-based semantic analysis.
+- Exposure classification uses deterministic rules.
+- Ransomware claims may be false, duplicated or delayed.
+- HIBP public metadata reflects when a breach was added, not necessarily when
+  it occurred.
+- HIBP verified-domain monitoring requires a subscription.
+- HTML source layouts can change.
+- No persistent cross-run state.
+- Stories can repeat while they remain inside the reporting window.
+- No customer asset inventory or CMDB integration.
+- Brand monitoring detects textual references only; it does not perform DNS,
+  certificate-transparency or logo-similarity monitoring.
