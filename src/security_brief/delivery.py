@@ -7,7 +7,7 @@
 """SMTP delivery for the rendered briefing."""
 
 from __future__ import annotations
-
+from .config import BRIEF_VERSION
 import smtplib
 import ssl
 from email.message import EmailMessage
