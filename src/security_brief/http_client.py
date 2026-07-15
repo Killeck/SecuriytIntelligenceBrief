@@ -12,7 +12,7 @@ shared within each worker's sequence of requests.
 """
 
 from __future__ import annotations
-
+from .config import BRIEF_VERSION
 import threading
 from typing import Any
 
