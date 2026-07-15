@@ -1,13 +1,10 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
-#
-# Proprietary and confidential.
-# Unauthorised use, copying, modification or distribution is prohibited.
-# See the LICENSE file at the repository root for complete terms.
+# Proprietary and confidential. See LICENSE.
 
 """SMTP delivery for the rendered briefing."""
 
 from __future__ import annotations
-from .config import BRIEF_VERSION
+
 import smtplib
 import ssl
 from email.message import EmailMessage

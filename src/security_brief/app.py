@@ -1,8 +1,5 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
-#
-# Proprietary and confidential.
-# Unauthorised use, copying, modification or distribution is prohibited.
-# See the LICENSE file at the repository root for complete terms.
+# Proprietary and confidential. See LICENSE.
 
 """Application orchestration for the Daily Security Brief.
 
@@ -13,7 +10,8 @@ which substantially reduces total runtime without increasing per-source load.
 """
 
 from __future__ import annotations
-from .config import BRIEF_VERSION
+
+from __future__ import annotations
 
 import os
 import sys

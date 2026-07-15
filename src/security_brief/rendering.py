@@ -1,8 +1,5 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
-#
-# Proprietary and confidential.
-# Unauthorised use, copying, modification or distribution is prohibited.
-# See the LICENSE file at the repository root for complete terms.
+# Proprietary and confidential. See LICENSE.
 
 """Plain-text and HTML report rendering.
 
@@ -748,6 +745,10 @@ def render_text_report(
         ]
     )
 
+    if warnings:
+        text.extend(["", "Source Warnings", "---------------"])
+        text.extend(f"- {warning}" for warning in warnings)
+
     text.extend(
         [
             "",
@@ -761,10 +762,6 @@ def render_text_report(
             ),
         ]
     )
-    
-    if warnings:
-        text.extend(["", "Source Warnings", "---------------"])
-        text.extend(f"- {warning}" for warning in warnings)
 
     return "\n".join(text)
 
@@ -1966,10 +1963,10 @@ def render_html_report(
                       stolen-data repositories.
                     </div>
                     <div style="margin-top:8px;">
-                        Dailiy Security Brief © 2026 John-Helge Gantz.
-                        Report format and software implementation are proprietary.
-                        Third-party source content remains the property of its
-                        respective publisher.
+                      Daily Security Brief © 2026 John-Helge Gantz.
+                      Report format and software implementation are proprietary.
+                      Third-party source content remains the property of its
+                      respective publishers.
                     </div>
                   </td>
                 </tr>

@@ -1,13 +1,9 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
-#
-# Proprietary and confidential.
-# Unauthorised use, copying, modification or distribution is prohibited.
-# See the LICENSE file at the repository root for complete terms.
+# Proprietary and confidential. See LICENSE.
 
 """Deterministic relevance, classification and advisory rules."""
 
 from __future__ import annotations
-from .config import BRIEF_VERSION
 
 RELEVANCE_RULES = (
     (

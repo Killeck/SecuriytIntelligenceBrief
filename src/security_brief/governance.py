@@ -1,13 +1,10 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
-#
-# Proprietary and confidential.
-# Unauthorised use, copying, modification or distribution is prohibited.
-# See the LICENSE file at the repository root for complete terms.
+# Proprietary and confidential. See LICENSE.
 
 """Forward-looking governance, compliance and standards milestones."""
 
 from __future__ import annotations
-from .config import BRIEF_VERSION
+
 import json
 from datetime import date, timedelta
 from .config import GOVERNANCE_SECTIONS, UPCOMING_GOVERNANCE_FILE

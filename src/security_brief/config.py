@@ -1,28 +1,43 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
-#
-# Proprietary and confidential.
-# Unauthorised use, copying, modification or distribution is prohibited.
-# See the LICENSE file at the repository root for complete terms.
+# Proprietary and confidential. See LICENSE.
 
 """Application identity, endpoints and global runtime constants."""
 
 from __future__ import annotations
 
 import os
+import re
 from pathlib import Path
 from zoneinfo import ZoneInfo
-from pathlib import Path
-
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-
-VERSION_FILE = PROJECT_ROOT / "VERSION"
 
 BRIEF_NAME = "Daily Security Brief"
 
-BRIEF_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip()
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+VERSION_FILE = PROJECT_ROOT / "VERSION"
 
-if not BRIEF_VERSION:
-    raise RuntimeError("VERSION file is empty")
+
+def _load_version() -> str:
+    """Read and validate the repository VERSION file."""
+
+    try:
+        version = VERSION_FILE.read_text(encoding="utf-8").strip()
+    except OSError as error:
+        raise RuntimeError(
+            f"Unable to read version file: {VERSION_FILE}"
+        ) from error
+
+    if not version:
+        raise RuntimeError(f"Version file is empty: {VERSION_FILE}")
+
+    if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.-]+)?", version):
+        raise RuntimeError(
+            f"Invalid version value {version!r} in {VERSION_FILE}"
+        )
+
+    return version
+
+
+BRIEF_VERSION = _load_version()
 
 USER_AGENT = (
     f"daily-security-brief/{BRIEF_VERSION} "

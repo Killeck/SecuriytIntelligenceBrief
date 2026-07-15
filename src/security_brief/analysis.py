@@ -1,15 +1,11 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
-#
-# Proprietary and confidential.
-# Unauthorised use, copying, modification or distribution is prohibited.
-# See the LICENSE file at the repository root for complete terms.
+# Proprietary and confidential. See LICENSE.
 
 """Deterministic classification, relevance, prioritisation and advisory logic."""
 
 from __future__ import annotations
 
 import re
-from .config import BRIEF_VERSION
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 

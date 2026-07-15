@@ -1,8 +1,5 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
-#
-# Proprietary and confidential.
-# Unauthorised use, copying, modification or distribution is prohibited.
-# See the LICENSE file at the repository root for complete terms.
+# Proprietary and confidential. See LICENSE.
 
 """Small deterministic helpers used across the pipeline."""
 
@@ -19,7 +16,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from dateutil import parser as date_parser
 
-from .config import EFFECTIVE_DATE_TERMS, OSLO_TIMEZONE, BRIEF_NAME, BRIEF_VERSION
+from .config import EFFECTIVE_DATE_TERMS, OSLO_TIMEZONE
 from .rules import DATE_PATTERNS, NORWEGIAN_MONTHS
 
 def required(name: str) -> str:
@@ -289,3 +286,4 @@ def truncate(value: str, limit: int) -> str:
     if len(value) <= limit:
         return value
     return value[: limit - 1].rstrip() + "…"
+
