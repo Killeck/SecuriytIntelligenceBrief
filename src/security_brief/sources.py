@@ -35,19 +35,38 @@ EXECUTIVE_NEWS_HTML = (
         "name": "Reuters Cybersecurity",
         "url": "https://www.reuters.com/technology/cybersecurity/",
         "base_score": 14,
+
+        # Reuters places article links in several parts of the page.
+        # The article_path_regex below performs the important filtering.
         "selectors": (
-            "main a[href*='/technology/']",
-            "main h2 a[href]",
-            "main h3 a[href]",
-            "article a[href]",
+            "main a[href]",
         ),
-        "include": ("reuters.com",),
+
+        "allowed_hosts": (
+            "www.reuters.com",
+            "reuters.com",
+        ),
+    
+        # Reuters article URLs normally end with a publication date.
+        # Cybersecurity stories can appear under technology, world,
+        # legal, business or sustainability.
+        "article_path_regex": (
+            r"^/(technology|world|legal|business|sustainability)/"
+            r".+-\d{4}-\d{2}-\d{2}/?$"
+        ),
+    
         "exclude": (
             "/video/",
             "/pictures/",
             "/graphics/",
-            "/legal/",
+            "/podcasts/",
+            "/commentary/",
+            "/breakingviews/",
+            "/sponsored-content/",
+            "/press-releases/",
         ),
+    
+        "max_candidates": 35,
     },
     {
         "name": "The Record",
@@ -104,20 +123,39 @@ EXECUTIVE_NEWS_HTML = (
     },
     {
         "name": "BankInfoSecurity",
-        "url": "https://www.bankinfosecurity.com/",
-        "base_score": 9,
+        "url": "https://www.bankinfosecurity.com/latest-news",
+        "base_score": 8,
+    
+        # Current news articles appear as heading links.
         "selectors": (
             "main h2 a[href]",
-            "main h3 a[href]",
-            "article a[href]",
+            "h2 a[href*='-a-']",
+            "h5 a[href*='-a-']",
         ),
-        "include": ("bankinfosecurity.com",),
+    
+        "allowed_hosts": (
+            "www.bankinfosecurity.com",
+            "bankinfosecurity.com",
+        ),
+    
+        # BankInfoSecurity article paths use:
+        # /article-title-a-32224
+        "article_path_regex": (
+            r"^/[a-z0-9][a-z0-9-]*-a-\d+/?$"
+        ),
+    
         "exclude": (
             "/webinars/",
-            "/whitepapers/",
             "/events/",
-            "/interviews/",
+            "/training/",
+            "/calendar/",
+            "/authors/",
+            "/topics/",
+            "/latest-news",
+            "/search",
         ),
+    
+        "max_candidates": 35,
     },
     {
         "name": "SC World",
