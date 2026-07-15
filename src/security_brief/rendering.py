@@ -606,7 +606,11 @@ def render_text_report(
 
     for section in primary_section_order:
         section_items = grouped.get(section, [])
-        display_title = section_titles.get(section, section)
+        display_title = (
+            f"{title} ↳"
+            if anchor_id
+            else title
+        )
 
         if section == "SOC and Detection Engineering":
             if not section_items and not detection_opportunities:
@@ -837,10 +841,32 @@ def _link(label: str, url: str) -> str:
     )
 
 
-def _panel(title: str, body: str, accent: str = "#6ea8fe") -> str:
+def _panel(
+    title: str,
+    body: str,
+    accent: str = "#6ea8fe",
+    anchor_id: str = "",
+) -> str:
     """Wrap content in a reusable dark email panel."""
 
+    anchor_html = ""
+
+    if anchor_id:
+        safe_anchor = html.escape(
+            anchor_id,
+            quote=True,
+        )
+
+        # Include both id and name for broader email-client compatibility.
+        anchor_html = (
+            f'<a id="{safe_anchor}" '
+            f'name="{safe_anchor}" '
+            'style="display:block;height:0;line-height:0;'
+            'font-size:0;overflow:hidden;">&nbsp;</a>'
+        )
+
     return f"""
+    {anchor_html}
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
            style="border-collapse:separate;border-spacing:0;
                   background:{DASHBOARD_COLOURS['panel']};
@@ -868,8 +894,24 @@ def _metric_card(
     icon: str,
     accent: str,
     detail: str,
+    anchor_id: str = "",
 ) -> str:
-    """Render one top-level metric card as a table cell."""
+    """Render one clickable top-level metric card."""
+
+    safe_anchor = html.escape(
+        anchor_id,
+        quote=True,
+    )
+
+    link_start = ""
+    link_end = ""
+
+    if anchor_id:
+        link_start = (
+            f'<a href="#{safe_anchor}" '
+            'style="display:block;text-decoration:none;color:inherit;">'
+        )
+        link_end = "</a>"
 
     return f"""
     <td width="16.66%" valign="top" style="padding:4px;">
@@ -880,20 +922,34 @@ def _metric_card(
         <tr>
           <td style="padding:11px 10px 5px 10px;color:{accent};
                      font-size:11px;font-weight:700;">
-            {_escape(title)}
+            {link_start}
+              <span style="color:{accent};">
+                {_escape(title)}
+              </span>
+            {link_end}
           </td>
         </tr>
         <tr>
           <td style="padding:0 10px;color:{DASHBOARD_COLOURS['text']};
                      font-size:20px;font-weight:700;white-space:nowrap;">
-            <span style="color:{accent};font-size:20px;">{_escape(icon)}</span>
-            {_escape(value)}
+            {link_start}
+              <span style="color:{accent};font-size:20px;">
+                {_escape(icon)}
+              </span>
+              <span style="color:{DASHBOARD_COLOURS['text']};">
+                {_escape(value)}
+              </span>
+            {link_end}
           </td>
         </tr>
         <tr>
           <td style="padding:5px 10px 11px 10px;
                      color:{DASHBOARD_COLOURS['muted']};font-size:10px;">
-            {_escape(detail)}
+            {link_start}
+              <span style="color:{DASHBOARD_COLOURS['muted']};">
+                {_escape(detail)}
+              </span>
+            {link_end}
           </td>
         </tr>
       </table>
@@ -1666,6 +1722,7 @@ def render_html_report(
             "!",
             status["colour"],
             f"Enterprise: {enterprise_status['display']}",
+            "executive-summary",
         )}
         {_metric_card(
             "Active Exploitation",
@@ -1673,6 +1730,7 @@ def render_html_report(
             "◉",
             DASHBOARD_COLOURS["high"],
             "KEV or exploitation evidence",
+            "active-exploitation",
         )}
         {_metric_card(
             "Zero-Days",
@@ -1680,6 +1738,7 @@ def render_html_report(
             "▲",
             DASHBOARD_COLOURS["medium"],
             "Explicit zero-day references",
+            "critical-vulnerabilities",
         )}
         {_metric_card(
             "Dark Web / Exposure",
@@ -1687,6 +1746,7 @@ def render_html_report(
             "◉",
             DASHBOARD_COLOURS["blue"],
             "Exposure signals collected",
+            "dark-web-exposure",
         )}
         {_metric_card(
             "Vendor Alerts",
@@ -1694,6 +1754,7 @@ def render_html_report(
             "◆",
             DASHBOARD_COLOURS["purple"],
             "Priority vendor developments",
+            "vendor-updates",
         )}
         {_metric_card(
             "Governance",
@@ -1701,6 +1762,7 @@ def render_html_report(
             "✓",
             DASHBOARD_COLOURS["green"],
             f"{upcoming_days}-day horizon",
+            "governance",
         )}
       </tr>
     </table>
@@ -1710,32 +1772,45 @@ def render_html_report(
         "Executive Summary (TL;DR)",
         summary_html,
         DASHBOARD_COLOURS["blue"],
+        anchor_id="executive-summary",
     )
-
+    
     vulnerability_panel = _panel(
         "1. Critical Vulnerabilities / Zero-Days",
         _render_vulnerability_table(items),
         DASHBOARD_COLOURS["critical"],
+        anchor_id="critical-vulnerabilities",
     )
+    
     threat_panel = _panel(
         "2. Active Exploitation / Threat Actor Activity",
         _render_threat_rows(items),
         DASHBOARD_COLOURS["blue"],
+        anchor_id="active-exploitation",
     )
+    
     exposure_panel = _panel(
         "3. Dark Web / Exposure Watch",
         _render_exposure_cards(exposure_signals),
         DASHBOARD_COLOURS["blue"],
+        anchor_id="dark-web-exposure",
     )
+    
     vendor_panel = _panel(
         "4. Vendor Updates",
         _render_vendor_cards(items),
         DASHBOARD_COLOURS["blue"],
+        anchor_id="vendor-updates",
     )
+    
     governance_panel = _panel(
         "5. Standards / Compliance / Governance",
-        _render_governance_cards(items, upcoming_events),
+        _render_governance_cards(
+            items,
+            upcoming_events,
+        ),
         DASHBOARD_COLOURS["green"],
+        anchor_id="governance",
     )
     action_panel = _panel(
         "6. Recommended Actions Today",
