@@ -1,3 +1,9 @@
+# Copyright © 2026 John-Helge Gantz. All rights reserved.
+#
+# Proprietary and confidential.
+# Unauthorised use, copying, modification or distribution is prohibited.
+# See the LICENSE file at the repository root for complete terms.
+
 """Thread-local HTTP client with bounded retries and connection reuse.
 
 A separate session is created per worker thread because ``requests.Session`` is
