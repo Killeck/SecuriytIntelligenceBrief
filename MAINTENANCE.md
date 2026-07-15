@@ -1,5 +1,11 @@
 # Maintenance priorities
 
+V5.1
+Aims to fix
+- 1
+- 2
+  
+
 ## Priority 1 — Restore and protect core functionality
 
 1. Fix erroneous or obsolete URLs and parsers for:
