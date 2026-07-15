@@ -13,8 +13,7 @@ which substantially reduces total runtime without increasing per-source load.
 """
 
 from __future__ import annotations
-
-from __future__ import annotations
+from .config import BRIEF_VERSION
 
 import os
 import sys
