@@ -1,8 +1,12 @@
+# Copyright © 2026 John-Helge Gantz. All rights reserved.
+# Proprietary and confidential. See LICENSE.
+
 """Offline regression tests for the optimised briefing pipeline."""
 
 from __future__ import annotations
 
 import unittest
+from pathlib import Path
 from datetime import datetime, timezone
 from unittest.mock import patch
 
@@ -18,7 +22,7 @@ from security_brief.app import (
     PipelineState,
     collect_tasks,
 )
-from security_brief import collectors
+from security_brief import BRIEF_VERSION, collectors
 from security_brief.models import Item, NewsLink
 from security_brief.rendering import render_report
 
@@ -149,6 +153,14 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(signals[0].confidence, "Verified")
         self.assertNotIn("@", signals[0].affected)
 
+    def test_version_matches_repository_file(self) -> None:
+        project_root = Path(__file__).resolve().parents[1]
+        expected = (
+            project_root / "VERSION"
+        ).read_text(encoding="utf-8").strip()
+
+        self.assertEqual(BRIEF_VERSION, expected)
+
     def test_report_retains_advisory_and_ciso_views(self) -> None:
         exposure = deduplicate_exposure_signals(
             build_open_source_exposure_signals(
@@ -209,6 +221,7 @@ class PipelineTests(unittest.TestCase):
             "Dark Web / Exposure Watch",
             "Vendor Updates",
             "Recommended Actions Today",
+            "Daily Security Brief © 2026 John-Helge Gantz",
         ):
             self.assertIn(expected, text_body + html_body)
 
