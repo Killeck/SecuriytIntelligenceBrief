@@ -551,3 +551,17 @@ Tuesday–Sunday: 36 hours
 - No customer asset inventory or CMDB integration.
 - Brand monitoring detects textual references only; it does not perform DNS,
   certificate-transparency or logo-similarity monitoring.
+
+## Licence and Ownership
+
+Copyright © 2026 John-Helge Gantz. All rights reserved.
+
+Daily Security Brief is proprietary software. The source code,
+documentation, workflows, report templates and associated materials may not
+be copied, modified, distributed, sublicensed or used to create derivative
+works without prior written permission from the copyright owner.
+
+Access to this repository does not grant any ownership rights or implied
+licence.
+
+See [LICENSE](LICENSE) for the complete terms.
