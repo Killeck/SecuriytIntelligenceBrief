@@ -14,7 +14,7 @@ from zoneinfo import ZoneInfo
 
 BRIEF_NAME = "Daily Security Brief"
 
-BRIEF_VERSION = "4.2"
+BRIEF_VERSION = "5.0"
 
 USER_AGENT = (
     f"daily-security-brief/{BRIEF_VERSION} "
