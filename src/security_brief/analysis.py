@@ -9,6 +9,7 @@
 from __future__ import annotations
 
 import re
+from .config import BRIEF_VERSION
 from datetime import datetime, timedelta, timezone
 from typing import Any, Iterable
 
