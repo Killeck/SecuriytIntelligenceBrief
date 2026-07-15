@@ -606,11 +606,7 @@ def render_text_report(
 
     for section in primary_section_order:
         section_items = grouped.get(section, [])
-        display_title = (
-            f"{title} ↳"
-            if anchor_id
-            else title
-        )
+        display_title = section_titles.get(section, section)
 
         if section == "SOC and Detection Engineering":
             if not section_items and not detection_opportunities:
@@ -847,26 +843,24 @@ def _panel(
     accent: str = "#6ea8fe",
     anchor_id: str = "",
 ) -> str:
-    """Wrap content in a reusable dark email panel."""
+    """Wrap content in a reusable dark email panel.
 
-    anchor_html = ""
+    When ``anchor_id`` is supplied, the visible panel heading becomes the
+    named destination. A visible, non-empty anchor is retained more reliably
+    by email clients than an empty or zero-height anchor placed before a table.
+    """
+
+    title_html = _escape(title)
 
     if anchor_id:
-        safe_anchor = html.escape(
-            anchor_id,
-            quote=True,
-        )
-
-        # Include both id and name for broader email-client compatibility.
-        anchor_html = (
-            f'<a id="{safe_anchor}" '
-            f'name="{safe_anchor}" '
-            'style="display:block;height:0;line-height:0;'
-            'font-size:0;overflow:hidden;">&nbsp;</a>'
+        safe_anchor = html.escape(anchor_id, quote=True)
+        title_html = (
+            f'<a id="{safe_anchor}" name="{safe_anchor}" '
+            f'style="color:{accent};text-decoration:none;">'
+            f'{_escape(title)}</a>'
         )
 
     return f"""
-    {anchor_html}
     <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
            style="border-collapse:separate;border-spacing:0;
                   background:{DASHBOARD_COLOURS['panel']};
@@ -875,7 +869,7 @@ def _panel(
       <tr>
         <td style="padding:14px 16px 8px 16px;
                    color:{accent};font-size:16px;font-weight:700;">
-          {_escape(title)}
+          {title_html}
         </td>
       </tr>
       <tr>
@@ -896,63 +890,54 @@ def _metric_card(
     detail: str,
     anchor_id: str = "",
 ) -> str:
-    """Render one clickable top-level metric card."""
+    """Render one top-level metric card as a single clickable control.
 
-    safe_anchor = html.escape(
-        anchor_id,
-        quote=True,
+    The link wraps the complete visual card rather than only its individual
+    text fragments. This gives the full box one destination and avoids
+    duplicate links inside the same card.
+    """
+
+    card_style = (
+        f'display:block;background:{DASHBOARD_COLOURS["panel"]};'
+        f'border:1px solid {DASHBOARD_COLOURS["border"]};'
+        'border-radius:7px;text-decoration:none;color:inherit;'
+        'width:100%;box-sizing:border-box;cursor:pointer;'
     )
 
-    link_start = ""
-    link_end = ""
-
     if anchor_id:
-        link_start = (
-            f'<a href="#{safe_anchor}" '
-            'style="display:block;text-decoration:none;color:inherit;">'
+        safe_anchor = html.escape(anchor_id, quote=True)
+        safe_label = html.escape(f"Jump to {title}", quote=True)
+        card_start = (
+            f'<a href="#{safe_anchor}" aria-label="{safe_label}" '
+            f'style="{card_style}">'
         )
-        link_end = "</a>"
+        card_end = "</a>"
+    else:
+        card_start = f'<div style="{card_style}">'
+        card_end = "</div>"
 
     return f"""
     <td width="16.66%" valign="top" style="padding:4px;">
-      <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-             style="background:{DASHBOARD_COLOURS['panel']};
-                    border:1px solid {DASHBOARD_COLOURS['border']};
-                    border-radius:7px;">
-        <tr>
-          <td style="padding:11px 10px 5px 10px;color:{accent};
-                     font-size:11px;font-weight:700;">
-            {link_start}
-              <span style="color:{accent};">
-                {_escape(title)}
-              </span>
-            {link_end}
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:0 10px;color:{DASHBOARD_COLOURS['text']};
+      {card_start}
+        <span style="display:block;padding:11px 10px 5px 10px;
+                     color:{accent};font-size:11px;font-weight:700;">
+          {_escape(title)}
+        </span>
+        <span style="display:block;padding:0 10px;
+                     color:{DASHBOARD_COLOURS['text']};
                      font-size:20px;font-weight:700;white-space:nowrap;">
-            {link_start}
-              <span style="color:{accent};font-size:20px;">
-                {_escape(icon)}
-              </span>
-              <span style="color:{DASHBOARD_COLOURS['text']};">
-                {_escape(value)}
-              </span>
-            {link_end}
-          </td>
-        </tr>
-        <tr>
-          <td style="padding:5px 10px 11px 10px;
+          <span style="color:{accent};font-size:20px;">
+            {_escape(icon)}
+          </span>
+          <span style="color:{DASHBOARD_COLOURS['text']};">
+            {_escape(value)}
+          </span>
+        </span>
+        <span style="display:block;padding:5px 10px 11px 10px;
                      color:{DASHBOARD_COLOURS['muted']};font-size:10px;">
-            {link_start}
-              <span style="color:{DASHBOARD_COLOURS['muted']};">
-                {_escape(detail)}
-              </span>
-            {link_end}
-          </td>
-        </tr>
-      </table>
+          {_escape(detail)}
+        </span>
+      {card_end}
     </td>
     """
 
