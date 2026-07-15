@@ -7,6 +7,7 @@
 """Backward-compatible command entry point for GitHub Actions."""
 
 from security_brief.app import main
+from security_brief.config import BRIEF_VERSION
 
 
 if __name__ == "__main__":
