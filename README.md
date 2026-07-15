@@ -562,6 +562,9 @@ Tuesday–Sunday: 36 hours
 3. Externalise frequently changed source definitions and relevance rules.
 4. Add private report archiving and historical comparison.
 5. Pin dependencies with hashes and generate a CycloneDX or SPDX SBOM.
+6. Reuters Cybersecurity, BankInfoSecurity suffering from erronous URLs
+7. NVD encrichmnet requires NVD_API_KEY (should be free)
+8. Crossreference links in mail report, making it click navigational
 
 ## Contributions
 
