@@ -19,7 +19,7 @@ from urllib.parse import urljoin
 from bs4 import BeautifulSoup
 from dateutil import parser as date_parser
 
-from .config import EFFECTIVE_DATE_TERMS, OSLO_TIMEZONE
+from .config import EFFECTIVE_DATE_TERMS, OSLO_TIMEZONE, BRIEF_NAME, BRIEF_VERSION
 from .rules import DATE_PATTERNS, NORWEGIAN_MONTHS
 
 def required(name: str) -> str:
