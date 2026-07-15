@@ -1,6 +1,5 @@
 # Daily Security Brief
 
-**Version 5.0**
 
 A Python and GitHub Actions cybersecurity intelligence pipeline for Security
 Advisors, Technical Account Managers, SOC advisory functions, CISOs and
