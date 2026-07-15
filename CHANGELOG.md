@@ -1,12 +1,107 @@
+<!--
+Copyright © 2026 John-Helge Gantz. All rights reserved.
+Proprietary software. See LICENSE.
+-->
+
 # Changelog
 
-All notable changes to the **Daily CISO Security Briefing** are documented in
-this file.
+All notable changes to the **Daily Security Brief** are documented in this
+file.
 
 The project was developed through a series of working milestones before the
-current working version. Versions before 4.0 below are reconstructed from those
+formal v4.0 release. Versions before 4.0 below are reconstructed from those
 milestones and repository changes; they were not all published as formal
 releases.
+
+The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and
+uses semantic-style versioning where practical.
+
+---
+
+
+## 5.0.0 — 2026-07-15
+
+### Summary
+
+Promoted the dashboard-style daily email redesign to the first major v5
+release and completed the repository ownership, version-management and
+governance structure.
+
+### Added
+
+- Proprietary `LICENSE`.
+- Repository `NOTICE`.
+- `THIRD_PARTY_NOTICES.md`.
+- README contribution policy.
+- Ownership notice in both HTML and plain-text reports.
+- Regression test confirming runtime version consistency.
+
+### Changed
+
+- Made `VERSION` the single source of truth for Python runtime versioning.
+- Removed the hard-coded release number from workflow names and README current
+  release text.
+- Added workflow steps that load `VERSION` into `GITHUB_ENV`.
+- Retained explicit historical release numbers in this changelog.
+- Classified the compact dashboard redesign as version 5.0.
+
+### Retained
+
+- Modular v4.2 architecture.
+- Dashboard email layout.
+- Daily GitHub Actions execution.
+- Parallel source collection.
+- Dark-web and exposure intelligence.
+- Full Security Advisory and CISO coverage.
+
+---
+
+## 4.3.0 — 2026-07-15
+
+### Summary
+
+Replaced the long-form HTML presentation with a compact, email-safe dashboard
+that follows the Daily Security Brief visual mock-up while retaining the full
+v4.2 collection, analysis and CISO intelligence model.
+
+### Added
+
+- Six headline metric cards for:
+  - Overall threat level
+  - Active exploitation
+  - Zero-days
+  - Dark-web and exposure signals
+  - Vendor alerts
+  - Governance changes
+- Executive Summary in TL;DR format.
+- Critical vulnerability table with severity, vendor, CVE, CVSS, exploit
+  status and one-line summary.
+- Compact active exploitation and threat-activity rows.
+- Dark-web and exposure mini-cards with confidence and action.
+- Vendor update mini-cards.
+- Standards, compliance and governance mini-cards.
+- Recommended Actions Today checklist cards.
+- Compact relevant-news and sector-impact panels.
+- Email-client-compatible dark theme using nested tables and inline CSS.
+
+### Changed
+
+- Replaced long advisory cards and repeated paragraphs with concise TL;DR rows.
+- Kept technical, SOC, OT, regional, compliance, standards and GRC coverage in
+  compact detail sections below the dashboard.
+- Updated workflow and package version to 4.3.
+
+### Retained
+
+- All v4.2 collectors and source coverage.
+- Security Advisory Level and Enterprise DEFCON-style threat level.
+- CISA KEV and NVD enrichment.
+- Dark-web and HIBP exposure monitoring.
+- Daily 07:07 Europe/Oslo delivery.
+- Plain-text fallback email.
+- Parallel source collection and regression tests.
+
+---
 
 ## 4.2.0 — 2026-07-14
 
@@ -98,16 +193,17 @@ source coverage remain compatible with v4.1.
 - Parallel collection improves elapsed runtime but remains dependent on source
   response times and rate limits.
 
----
-
-## 4.1 - 2026-07-14
+## 4.1.0 — 2026-07-14
 
 ### Summary
-Shifting focus, this has been the intent the whole way, however getting the basics in place was essential. The shift now transitions from CISO to Security advisory and Dark Web, without loosing the holistic data collection value and holistic security oversight. Renamed the project to **Daily Security Brief** and shifte the Executive Summary toward Security Advisory and dark-web exposure intelligence wihtout removing the broad CISOintelligence model established from 2.0 to 4.0. 
 
-### Added/Changed
+Renamed the product to **Daily Security Brief** and shifted the Executive
+Summary toward Security Advisory and dark-web exposure intelligence without
+removing the broad CISO intelligence model established in v4.0.
 
-Security advisory and exposure layer
+### Added
+
+#### Security advisory and exposure layer
 
 - Added an independent Security Advisory Level based on:
   - Verified or reported credential exposure.
@@ -149,6 +245,35 @@ Security advisory and exposure layer
 
 #### Retained CISO intelligence
 
+- Retained the full v4.0 detailed source and report coverage.
+- Retained the DEFCON-style Enterprise Cyber Threat Level.
+- Displayed both:
+  - Security Advisory Level.
+  - Enterprise Cyber Threat Level.
+- Restored Relevant Cyber News in the Executive Summary.
+- Retained:
+  - CISA KEV.
+  - NVD CVSS enrichment.
+  - Zero-day and CVSS 10.0 prioritisation.
+  - Microsoft, Azure and Identity.
+  - Fortinet.
+  - HPE and Aruba.
+  - Cloud and supply-chain security.
+  - SOC and Detection Engineering.
+  - Threat Intelligence.
+  - Vulnerability Research.
+  - OT, Energy and Oil & Gas.
+  - Scandinavia and Europe.
+  - Norwegian Security Governance.
+  - Compliance.
+  - Standards.
+  - GRC.
+  - Sector and customer impact.
+  - Upcoming governance deadlines.
+  - Source coverage and diagnostics.
+- Renamed the final monitoring section to:
+  `Security Advisory and CISO Watch List`.
+
 ### Changed
 
 - Renamed the product from `Daily CISO Security Briefing` to
@@ -162,8 +287,10 @@ Security advisory and exposure layer
   - Product name and version.
 - Changed workflow names to:
   - `Daily Security Brief v4.1`.
+  - `Test Daily Security Brief v4.1`.
 - Renamed workflow files to:
   - `.github/workflows/daily-security-brief.yml`.
+  - `.github/workflows/test-security-brief.yml`.
 - Renamed the Python entry point to:
   `src/send_security_advisory.py`.
 
@@ -181,6 +308,18 @@ Security advisory and exposure layer
 - Added guidance to restrict exposure reports to authorised advisory,
   incident-response and customer teams.
 
+### Documentation
+
+- Added a module-level architecture and processing-flow description.
+- Added docstrings to all 71 top-level classes and functions.
+- Added section comments for source adapters, classification rules, exposure
+  taxonomies, SOC templates, date parsing and NVD coverage.
+- Added targeted inline comments around automatic reporting windows, source
+  isolation, scoring, HIBP privacy handling, deduplication, NVD enrichment,
+  threat-level calculation, report rendering and email delivery.
+- Confirmed that the executable Python AST is unchanged when comments and
+  docstrings are excluded.
+
 ### Known limitations
 
 - Public reporting does not provide full direct dark-web visibility.
@@ -190,40 +329,258 @@ Security advisory and exposure layer
 - Brand monitoring is textual and does not yet include certificate
   transparency, DNS or visual-logo similarity checks.
 
----
+## 4.0.0 — 2026-07-14
 
-## 4.0 - 2026-07-14
+### Summary
+
+Consolidated the complete briefing pipeline into the first formal, operational
+release. Version 4.0 combines authoritative vulnerability intelligence,
+vendor and threat-research coverage, executive cyber-news discovery, sector
+impact analysis, SOC detection guidance, OT and energy coverage, governance
+tracking, automated scheduling and Gmail delivery.
 
 ### Added
 
-- Added a versioned report title and email subject: "Daily CISO Security Briefing v4.0"
-- Relevant Cyber News expanded with Reuters Cybersecurity, SecurityWeek, BleepingComputer, The Record, Dark Reading, BankInfoSecuriyt, SC World and Indstrial Cyber
-- Per-publisher headline limits
-- Sector an dCustomer Impact in the Exectuive summary
-- SOC and Detection Engineering section
-- Deterministic detection opportunities with telemetry and MITRE ATT&CK
-- OT, Energy and Oil & Gas Section
-- CISA ICS, Dragos, Claroty Team82 and Nozomi Networks Labs coverage
-- The DFIR Report, SigmaHQ, Elastic Security Labs and Splunk Security Blog
-- Scandinavia and Europe Sections
-- Renamed Microsoft, Azure and Identity Section
-- Versioned report Title and email subject
-- Production and manual test workflows
-- Consolidated README
+#### Executive Summary
 
-### Retained
-- DEFCON-style colour-coded threat level
-- Automatic 36-hour and Mondya 72-hour reporting windows
-- Zero-day and CVSS 10.0 Executive Summary Priority
-- CISA KEV and NVD enrichment
-- Compliance, Standards and GRC sections
-- Fourteen-day governance Horizon
-- Bordered report cards and horizontal separators
-- Quiet handling of successful zero-result sources
-- Non-fatal source collection failures
-- Gmail SMTP delivery
+- Added a versioned report title and email subject:
+  `Daily CISO Security Briefing v4.0`.
+- Added the following ordered Executive Summary elements:
+  - DEFCON-style overall threat level.
+  - Top five primary developments.
+  - Relevant Cyber News.
+  - Zero-Day and CVSS 10.0 summary.
+  - Sector and Customer Impact.
+  - Compliance, Standards and Governance Changes.
+  - Going Live Today or Within 14 Days.
+  - Immediate Actions.
+- Added a clear disclaimer that secondary-news links are for discovery, while
+  vendor, government and standards sources remain authoritative.
+- Increased the default Relevant Cyber News allowance to ten links.
+
+#### Relevant Cyber News
+
+- Expanded secondary-source discovery to include:
+  - Reuters Cybersecurity.
+  - SecurityWeek.
+  - BleepingComputer.
+  - The Record.
+  - The Hacker News.
+  - Cybersecurity Dive.
+  - Cyber Security News.
+  - Dark Reading.
+  - BankInfoSecurity.
+  - SC World.
+  - Industrial Cyber.
+- Added per-publisher limits to prevent one source dominating the briefing.
+- Added title-similarity deduplication across publishers.
+- Added filtering for:
+  - Sponsored content.
+  - Webinars.
+  - Podcasts.
+  - Newsletters.
+  - Awards.
+  - Funding announcements.
+  - Buyer guides.
+  - Generic tool lists.
+  - Weekly recap articles.
+- Added relevance scoring for:
+  - Azure and Microsoft.
+  - Fortinet.
+  - HPE and Aruba.
+  - SOC, SIEM, MDR, XDR and EDR.
+  - Cloud and identity.
+  - Scandinavia and Europe.
+  - Oil and gas.
+  - Energy and critical infrastructure.
+  - Public sector.
+  - Healthcare.
+  - Finance.
+  - Retail.
+  - Hospitality.
+  - Property and housing.
+  - Transport and maritime.
+  - Research and education.
+  - Managed service providers, telecom and hosting.
+
+#### Sector and Customer Impact
+
+- Added deterministic sector-impact statements in the Executive Summary.
+- Added support for:
+  - Oil, Gas and Energy.
+  - Retail and E-commerce.
+  - Hospitality and Travel.
+  - Public Sector and Municipalities.
+  - Healthcare.
+  - Finance and Insurance.
+  - Research and Education.
+  - Transport and Maritime.
+  - Property, Housing and Construction.
+  - Managed Services, Telecom and Hosting.
+- Limited the section to the five most relevant sector impacts.
+
+#### SOC and Detection Engineering
+
+- Added a dedicated SOC and Detection Engineering section.
+- Added source coverage from:
+  - The DFIR Report.
+  - SigmaHQ releases.
+  - Elastic Security Labs.
+  - Splunk Security Blog.
+- Added deterministic detection opportunities for:
+  - Identity and token abuse.
+  - Active exploitation.
+  - Critical vulnerabilities.
+  - Ransomware.
+  - Cloud control-plane activity.
+  - Software supply-chain compromise.
+  - Nation-state activity.
+  - OT and ICS behaviours.
+  - General threat hunting.
+- Added suggested:
+  - Detection focus.
+  - Data sources.
+  - MITRE ATT&CK mappings.
+  - Supporting source links.
+- Retained the requirement that generated guidance is a starting point for
+  analyst validation, not a production-ready detection rule.
+
+#### OT, Energy and Oil & Gas
+
+- Added a dedicated OT, Energy and Oil & Gas section.
+- Added source coverage from:
+  - CISA ICS Advisories.
+  - Dragos.
+  - Claroty Team82.
+  - Nozomi Networks Labs.
+  - Industrial Cyber.
+- Added relevance weighting for:
+  - Offshore environments.
+  - Energy systems.
+  - Utilities.
+  - Pipelines.
+  - Industrial control systems.
+  - SCADA.
+  - OT remote access.
+  - Critical infrastructure.
+
+#### Scandinavia and Europe
+
+- Added a dedicated Scandinavia and Europe section.
+- Added regional routing for:
+  - Norway.
+  - Sweden.
+  - Denmark.
+  - Finland.
+  - Iceland.
+  - Nordic and Scandinavian developments.
+  - EU and EEA developments.
+  - ENISA.
+  - CERT-EU references found in collected material.
+  - NIS2.
+  - DORA.
+  - NSM.
+  - Sikkerhetsloven.
+- Added regional headline selection from both primary and secondary sources.
+
+#### Source and section structure
+
+- Renamed `Microsoft` to `Microsoft, Azure and Identity`.
+- Renamed `HPE` to `HPE and Aruba`.
+- Added the final detailed report order:
+  - Known Exploited Vulnerabilities.
+  - Microsoft, Azure and Identity.
+  - Fortinet.
+  - HPE and Aruba.
+  - Other Vendor Advisories.
+  - Cloud and Identity.
+  - SOC and Detection Engineering.
+  - Threat Intelligence.
+  - Vulnerability Research.
+  - OT, Energy and Oil & Gas.
+  - Scandinavia and Europe.
+  - Norwegian Security Governance.
+  - Compliance.
+  - Standards.
+  - GRC.
+  - Upcoming Compliance, Standards and Governance.
+  - Source Coverage.
+  - CISO Watch List.
+
+#### Workflows and packaging
+
+- Added a production workflow:
+  `.github/workflows/daily-security-brief.yml`.
+- Added a manual test workflow:
+  `.github/workflows/test-security-brief.yml`.
+- Added a production schedule at 07:07 Europe/Oslo.
+- Added workflow concurrency control to prevent overlapping scheduled runs.
+- Added configurable manual-test inputs.
+- Added a `VERSION` file.
+- Added a consolidated `README.md`.
+- Added this expanded `CHANGELOG.md`.
+- Added a SHA-256 checksum for the release archive.
+
+### Changed
+
+- Increased the GitHub Actions timeout to 30 minutes to accommodate the larger
+  source set and NVD throttling.
+- Changed the default secondary-news maximum from eight to ten.
+- Changed the source hierarchy to explicitly separate:
+  - Authoritative vulnerability and exploitation sources.
+  - Vendor and technical research.
+  - Governance and standards.
+  - Secondary discovery sources.
+- Changed final item selection to reserve report capacity for populated
+  sections before filling the remaining allowance by score.
+- Changed empty-section handling so sections without qualifying content are
+  suppressed.
+- Changed successful zero-result source reporting to a single compact summary
+  line.
+- Changed the email subject to include:
+  - DEFCON value.
+  - Product name.
+  - Version.
+  - Number of primary developments.
+
+### Fixed
+
+- Corrected section routing for HPE and Aruba.
+- Corrected healthcare-sector keyword matching to reduce false positives from
+  the word `hospitality`.
+- Preserved bordered vulnerability and intelligence cards after the v4.0
+  renderer consolidation.
+- Preserved full-width horizontal separators below each item.
+- Preserved non-fatal source failures and visible source diagnostics.
+
+### Security
+
+- Retained least-privilege GitHub Actions permissions:
+  `contents: read`.
+- Retained Gmail and NVD secrets exclusively through GitHub Actions secrets.
+- Documented the trust boundary between authoritative and secondary sources.
+- Documented source content as untrusted input.
+- Documented recommended future controls:
+  - Full commit-hash pinning for GitHub Actions.
+  - Dependency hash pinning.
+  - Dependabot.
+  - `pip-audit`.
+  - Machine-readable CycloneDX or SPDX SBOM generation.
+
+### Known limitations
+
+- No LLM-based semantic analysis.
+- Deterministic summaries, actions and detection guidance.
+- HTML source adapters may break when sites change layout.
+- Some dynamically rendered pages may return no parsable content.
+- No persistent state across runs.
+- Stories may repeat while they remain inside the reporting window.
+- The future governance event register requires manual maintenance.
+- X.com is not included because stable automated access requires a paid API or
+  unreliable scraping.
 
 ---
+
 ## 3.0.0 — Relevant Cyber News milestone
 
 ### Summary
