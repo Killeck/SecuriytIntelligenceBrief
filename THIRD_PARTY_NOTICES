@@ -1,21 +1,43 @@
+<!--
+Copyright © 2026 John-Helge Gantz. All rights reserved.
+Proprietary software. See LICENSE.
+-->
+
 # Third-party notices
 
-Daily Security Brief uses third-party Python packages and external data
-sources. Each component remains subject to its own terms and licence.
+Daily Security Brief uses third-party Python packages and external information
+sources. Each component and source remains subject to its own licence, terms
+and acceptable-use requirements.
 
 ## Python dependencies
 
 | Component | Purpose | Licence |
 |---|---|---|
-| beautifulsoup4 | HTML parsing | MIT |
-| feedparser | RSS and Atom parsing | BSD |
-| python-dateutil | Date parsing | Apache-2.0 / BSD |
-| requests | HTTP client | Apache-2.0 |
+| `beautifulsoup4` | HTML parsing | MIT |
+| `feedparser` | RSS and Atom parsing | BSD-2-Clause |
+| `python-dateutil` | Date parsing | Apache-2.0 OR BSD-3-Clause |
+| `requests` | HTTP client | Apache-2.0 |
 
-## External data and services
+The authoritative licence information is the metadata and licence text
+distributed with the installed dependency version.
 
-Use of external feeds and APIs remains subject to the terms of the relevant
-provider, including CISA, NVD, HIBP and individual publishers.
+## External information sources
 
-No ownership is claimed over third-party advisories, trademarks, articles or
-data.
+The application retrieves or references information from external providers,
+which may include:
+
+- CISA
+- NIST National Vulnerability Database
+- Have I Been Pwned
+- Vendor security advisory and research sites
+- Standards and governance organisations
+- Security news publications
+
+No ownership is claimed over third-party advisories, vulnerability records,
+articles, trademarks, logos or datasets. Collection and use remain subject to
+the relevant provider's terms, robots policies, API conditions and copyright.
+
+## Review requirement
+
+Review this file whenever dependencies or external source integrations are
+added, removed or materially changed.
