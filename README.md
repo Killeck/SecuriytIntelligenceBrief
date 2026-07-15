@@ -13,9 +13,46 @@ The Executive Summary focuses on actionable Security Advisory and dark-web-relat
 See the [changelog](https://github.com/Killeck/SecuriytIntelligenceBrief/blob/main/changelog.md) for the complete development history.
 
 ---
+## Version 5.0 - 2026-07-15
+
+Taking the mondane textual reporting to a HTML render that now produces a compact report, with improved visuals and readability, now in the form of dashboard with visual mock-up.
+
+### Added
+- Six headline metric cards for:
+  - Overall threat level
+  - Active exploitation
+  - 0-days
+  - Dark-web and exposure signals
+  - Governance Changes
+- Executive Summary in TL;DR format (Well attempted)
+- Critical vuln. table with severity, vendor, CVE, CVSS, Exploit status and one-line summary
+- Compact active exploitation and threat-activity rows
+- Dark-web and exposure mini-cards with confidnce and action
+- Vendor update mini-cards
+- Standards, compliance and governance mini-cards
+- Recommended Actions Today Checkis Cards
+- Compact relevant-news and sector-impact panesl
+- Email-client-compatible dark theme useing nested tables and inline CSS
+
+### Changed
+- Replaced long advisory cards and repeated paragraphs with consice TL;DR rows
+- Kept technical, SOC, OT, regional, compliance, standards and GRC coverage in compact detail section below the dashboard
+- Updated workflow and package version to 5.0
+
+### Retained
+- All v4.2 collectors and source coverage
+- Security Advisory Level and Enterprise DEFCON-style threat level
+- CISA KEV and NVD enrichment
+- Dark-web and HIBP exposure monitoring
+- Daily 07:07 Europe/Oslo delivery
+- Plain-text fallback email
+- Parallel source collection and regression tests
+  
+---
+
 ## Version 4.2
 
-Version 4.2 focuses on code efficiency, maintainability and runtime performance.
+Version 4.2 focuses on code efficiency, maintainability and runtime performance, and is an optimised modular release.
 
 ### Changes
 
@@ -26,8 +63,6 @@ Version 4.2 focuses on code efficiency, maintainability and runtime performance.
 * Split report preparation, text rendering and HTML rendering.
 * Added automated regression tests to both GitHub Actions workflows.
 * Kept the existing execution command and report output compatible with v4.1.
-
-See [OPTIMISATION.md](OPTIMISATION.md) for technical details.
 
 ---
 
@@ -94,7 +129,6 @@ See [OPTIMISATION.md](OPTIMISATION.md) for technical details.
 19. Security Advisory and CISO Watch List
 
 Empty sections are not displayed.
-
 
 ## Threat-level model
 
@@ -476,22 +510,3 @@ Successful zero-result sources are collapsed into one summary line. Failures rem
 - There is not yet persistent state across runs, so a story can repeat while it remains inside the reporting window.
 - The upcoming governance register requires manual maintenance for events announced well before their effective dates.
 - Source availability and robots or access controls can change.
-
-## Maintenance priorities after v4.0
-
-1. Add persistent state and cross-run deduplication.
-2. Move source definitions and relevance rules into configuration files.
-3. Add automated parser-health tests.
-4. Add structured CERT-EU, Nkom and Nordic CERT sources where stable feeds are available.
-5. Add report archiving without introducing paid infrastructure.
-6. Pin dependencies with hashes and generate a machine-readable CycloneDX or SPDX SBOM.
-
-## Licence and ownership
-
-Add the repository licence and copyright notice appropriate for the owner.
-
-For private proprietary use, a simple repository notice can state:
-
-```text
-Copyright © 2026 John-Helge Gantz. All rights reserved.
-```
