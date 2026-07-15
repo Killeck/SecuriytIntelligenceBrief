@@ -1,7 +1,9 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
 # Proprietary software. See LICENSE.
 
-name: Daily Security Brief v5.0
+- name: Load version
+  shell: bash
+  run: echo "BRIEF_VERSION=$(tr -d '\r\n' < VERSION)" >> "$GITHUB_ENV"
 
 on:
   schedule:
