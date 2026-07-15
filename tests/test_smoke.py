@@ -88,6 +88,114 @@ class PipelineTests(unittest.TestCase):
             ),
         )
 
+    def test_reuters_article_url_validation(self) -> None:
+    source = {
+        "allowed_hosts": (
+            "www.reuters.com",
+            "reuters.com",
+        ),
+        "article_path_regex": (
+            r"^/(technology|world|legal|business|sustainability)/"
+            r".+-\d{4}-\d{2}-\d{2}/?$"
+        ),
+        "exclude": (
+            "/video/",
+            "/pictures/",
+            "/graphics/",
+            "/commentary/",
+        ),
+    }
+
+    valid_urls = (
+        (
+            "https://www.reuters.com/technology/"
+            "example-cyber-story-2026-07-14"
+        ),
+        (
+            "https://www.reuters.com/world/"
+            "example-ransomware-story-2026-07-14"
+        ),
+        (
+            "https://www.reuters.com/legal/government/"
+            "example-cyber-law-story-2026-07-14"
+        ),
+    )
+
+    for url in valid_urls:
+        with self.subTest(url=url):
+            self.assertTrue(
+                executive_article_url_allowed(source, url)
+            )
+
+    invalid_urls = (
+        "https://www.reuters.com/technology/cybersecurity/",
+        "https://www.reuters.com/video/example/",
+        "https://www.reuters.com/world/",
+        "https://example.com/technology/fake-2026-07-14/",
+    )
+
+    for url in invalid_urls:
+        with self.subTest(url=url):
+            self.assertFalse(
+                executive_article_url_allowed(source, url)
+            )
+
+    def test_bankinfosecurity_article_url_validation(self) -> None:
+        source = {
+            "allowed_hosts": (
+                "www.bankinfosecurity.com",
+                "bankinfosecurity.com",
+            ),
+            "article_path_regex": (
+                r"^/[a-z0-9][a-z0-9-]*-a-\d+/?$"
+            ),
+            "exclude": (
+                "/webinars/",
+                "/events/",
+                "/training/",
+                "/latest-news",
+            ),
+        }
+    
+        self.assertTrue(
+            executive_article_url_allowed(
+                source,
+                (
+                    "https://www.bankinfosecurity.com/"
+                    "microsoft-signed-legacy-shims-"
+                    "undermine-secure-boot-a-32224"
+                ),
+            )
+        )
+    
+        invalid_urls = (
+            "https://www.bankinfosecurity.com/latest-news",
+            "https://www.bankinfosecurity.com/topics/ransomware",
+            "https://www.bankinfosecurity.com/webinars/example",
+            "https://www.bankinfosecurity.com/",
+        )
+    
+        for url in invalid_urls:
+            with self.subTest(url=url):
+                self.assertFalse(
+                    executive_article_url_allowed(source, url)
+                )
+    
+    def test_article_url_canonicalisation(self) -> None:
+        url = (
+            "http://www.bankinfosecurity.com/"
+            "example-security-story-a-12345/"
+            "?utm_source=newsletter#article"
+        )
+    
+        self.assertEqual(
+            canonicalise_article_url(url),
+            (
+                "https://www.bankinfosecurity.com/"
+                "example-security-story-a-12345"
+            ),
+        )
+    
     def test_parallel_collection_preserves_health_order(self) -> None:
         state = PipelineState()
         target: list[int] = []
