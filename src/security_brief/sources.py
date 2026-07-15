@@ -7,7 +7,7 @@
 """Configured primary and secondary intelligence sources."""
 
 from __future__ import annotations
-
+from .config import BRIEF_VERSION
 from .models import Source
 
 EXECUTIVE_NEWS_RSS = (
