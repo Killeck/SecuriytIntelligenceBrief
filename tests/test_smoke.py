@@ -337,6 +337,5 @@ class PipelineTests(unittest.TestCase):
         ):
             self.assertIn(expected, text_body + html_body)
 
-
 if __name__ == "__main__":
     unittest.main()
