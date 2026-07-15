@@ -11,10 +11,18 @@ from __future__ import annotations
 import os
 from pathlib import Path
 from zoneinfo import ZoneInfo
+from pathlib import Path
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+
+VERSION_FILE = PROJECT_ROOT / "VERSION"
 
 BRIEF_NAME = "Daily Security Brief"
 
-BRIEF_VERSION = "5.0"
+BRIEF_VERSION = VERSION_FILE.read_text(encoding="utf-8").strip()
+
+if not BRIEF_VERSION:
+    raise RuntimeError("VERSION file is empty")
 
 USER_AGENT = (
     f"daily-security-brief/{BRIEF_VERSION} "
