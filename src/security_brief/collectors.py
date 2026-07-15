@@ -10,11 +10,12 @@ failure. Orchestration owns isolation, health reporting and retry policy.
 from __future__ import annotations
 
 import os
+import re
 import sys
 import time
 from datetime import date, datetime, timedelta, timezone
 from typing import Any
-from urllib.parse import quote
+from urllib.parse import quote, urljoin, urlsplit, urlunsplit
 
 import feedparser
 import requests
@@ -345,7 +346,89 @@ def fetch_executive_news_rss(
             links.append(news_link)
 
     return links
+    
+def canonicalise_article_url(url: str) -> str:
+    """Normalise an article URL and remove tracking parameters."""
 
+    parsed = urlsplit(url.strip())
+
+    if parsed.scheme not in {"http", "https"}:
+        return ""
+
+    host = parsed.netloc.lower()
+
+    if not host:
+        return ""
+
+    path = re.sub(r"/{2,}", "/", parsed.path or "/")
+
+    if path != "/":
+        path = path.rstrip("/")
+
+    return urlunsplit(
+        (
+            "https",
+            host,
+            path,
+            "",
+            "",
+        )
+    )
+
+
+def executive_article_url_allowed(
+    source: dict[str, Any],
+    url: str,
+) -> bool:
+    """Validate a discovery URL against the publisher article format."""
+
+    parsed = urlsplit(url)
+
+    if parsed.scheme not in {"http", "https"}:
+        return False
+
+    host = parsed.netloc.lower()
+    path = parsed.path
+
+    allowed_hosts = {
+        str(value).lower()
+        for value in source.get("allowed_hosts", ())
+    }
+
+    if allowed_hosts and host not in allowed_hosts:
+        return False
+
+    article_path_regex = str(
+        source.get("article_path_regex", "")
+    ).strip()
+
+    if article_path_regex and not re.fullmatch(
+        article_path_regex,
+        path,
+        flags=re.IGNORECASE,
+    ):
+        return False
+
+    lowered_url = url.lower()
+
+    if any(
+        str(value).lower() in lowered_url
+        for value in source.get("exclude", ())
+    ):
+        return False
+
+    # Retain compatibility with sources that still use the previous
+    # substring-based include configuration.
+    include_values = tuple(source.get("include", ()))
+
+    if include_values and not any(
+        str(value).lower() in lowered_url
+        for value in include_values
+    ):
+        return False
+
+    return True
+    
 def fetch_executive_news_html(
     source: dict[str, Any],
     cutoff: datetime,
@@ -361,41 +444,46 @@ def fetch_executive_news_html(
 
     soup = BeautifulSoup(response.text, "html.parser")
     links: list[NewsLink] = []
-    seen: set[str] = set()
+    seen_links: set[str] = set()
+    max_candidates = int(source.get("max_candidates", 40))
 
     for selector in source["selectors"]:
         for node in soup.select(selector):
             if not isinstance(node, Tag):
                 continue
 
-            anchor = node if node.name == "a" else node.find("a", href=True)
+            anchor = (
+                node
+                if node.name == "a"
+                else node.find("a", href=True)
+            )
 
             if not isinstance(anchor, Tag):
                 continue
 
-            href = str(anchor.get("href", "")).strip()
+            raw_href = clean_text(anchor.get("href", ""))
             title = clean_text(anchor.get_text(" ", strip=True))
 
-            if not href or len(title) < 12:
+            if not raw_href or len(title) < 12:
                 continue
 
-            link = absolute_url(source["url"], href)
-            lowered = link.lower()
+            link = canonicalise_article_url(
+                urljoin(source["url"], raw_href)
+            )
 
-            if link in seen:
+            if not link:
                 continue
 
-            if source.get("include") and not any(
-                value.lower() in lowered
-                for value in source["include"]
-            ):
+            if not executive_article_url_allowed(source, link):
                 continue
 
-            if any(
-                value.lower() in lowered
-                for value in source.get("exclude", ())
-            ):
+            if link in seen_links:
                 continue
+
+            # Register the URL before detail-page retrieval. This avoids
+            # requesting the same article repeatedly when several selectors
+            # match the same anchor.
+            seen_links.add(link)
 
             container = candidate_container(anchor)
             container_text = clean_text(
@@ -408,14 +496,17 @@ def fetch_executive_news_html(
                 candidate = clean_text(
                     paragraph.get_text(" ", strip=True)
                 )
+
                 if candidate and candidate != title:
                     summary = candidate
                     break
 
-            if published is None:
+            if published is None or not summary:
                 try:
-                    detail_date, detail_summary = extract_page_metadata(link)
-                    published = detail_date
+                    detail_date, detail_summary = (
+                        extract_page_metadata(link)
+                    )
+                    published = published or detail_date
                     summary = summary or detail_summary
                     time.sleep(0.1)
                 except requests.RequestException:
@@ -437,10 +528,14 @@ def fetch_executive_news_html(
             if news_link:
                 links.append(news_link)
 
-            seen.add(link)
+            if len(seen_links) >= max_candidates:
+                break
+
+        if len(seen_links) >= max_candidates:
+            break
 
     return links
-
+    
 def clean_html_text(value: str) -> str:
     """Strip HTML markup and normalise the remaining human-readable text."""
 
