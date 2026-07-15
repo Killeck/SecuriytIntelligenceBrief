@@ -1,9 +1,7 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
 # Proprietary software. See LICENSE.
 
-name: Load version
-  shell: bash
-  run: echo "BRIEF_VERSION=$(tr -d '\r\n' < VERSION)" >> "$GITHUB_ENV"
+name: Daily Security Brief
 
 on:
   schedule:
@@ -42,7 +40,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: daily-security-brief-v5.0
+  group: daily-security-brief
   cancel-in-progress: false
 
 jobs:
@@ -60,6 +58,11 @@ jobs:
         with:
           python-version: "3.12"
           cache: "pip"
+
+      - name: Load repository version
+        shell: bash
+        run: |
+          echo "BRIEF_VERSION=$(tr -d '\r\n' < VERSION)" >> "$GITHUB_ENV"
 
       - name: Install dependencies
         run: |
