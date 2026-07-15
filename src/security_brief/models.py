@@ -12,7 +12,7 @@ while allowing each layer to depend on a stable data contract.
 """
 
 from __future__ import annotations
-
+from .config import BRIEF_VERSION
 from dataclasses import dataclass, field
 from datetime import datetime
 
