@@ -89,37 +89,37 @@ class MockResponse:
             )
 
         def test_reuters_article_url_validation(self) -> None:
-        source = {
-            "allowed_hosts": (
-                "www.reuters.com",
-                "reuters.com",
-            ),
-            "article_path_regex": (
-                r"^/(technology|world|legal|business|sustainability)/"
-                r".+-\d{4}-\d{2}-\d{2}/?$"
-            ),
-            "exclude": (
-                "/video/",
-                "/pictures/",
-                "/graphics/",
-                "/commentary/",
-            ),
-        }
-
-        valid_urls = (
-            (
-                "https://www.reuters.com/technology/"
-                "example-cyber-story-2026-07-14"
-            ),
-            (
-                "https://www.reuters.com/world/"
-                "example-ransomware-story-2026-07-14"
-            ),
-            (
-                "https://www.reuters.com/legal/government/"
-                "example-cyber-law-story-2026-07-14"
-            ),
-        )
+            source = {
+                "allowed_hosts": (
+                    "www.reuters.com",
+                    "reuters.com",
+                ),
+                "article_path_regex": (
+                    r"^/(technology|world|legal|business|sustainability)/"
+                    r".+-\d{4}-\d{2}-\d{2}/?$"
+                ),
+                "exclude": (
+                    "/video/",
+                    "/pictures/",
+                    "/graphics/",
+                    "/commentary/",
+                ),
+            }
+    
+            valid_urls = (
+                (
+                    "https://www.reuters.com/technology/"
+                    "example-cyber-story-2026-07-14"
+                ),
+                (
+                    "https://www.reuters.com/world/"
+                    "example-ransomware-story-2026-07-14"
+                ),
+                (
+                    "https://www.reuters.com/legal/government/"
+                    "example-cyber-law-story-2026-07-14"
+                ),
+            )
 
         for url in valid_urls:
             with self.subTest(url=url):
