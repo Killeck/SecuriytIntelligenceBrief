@@ -7,6 +7,7 @@
 """Deterministic relevance, classification and advisory rules."""
 
 from __future__ import annotations
+from .config import BRIEF_VERSION
 
 RELEVANCE_RULES = (
     (
