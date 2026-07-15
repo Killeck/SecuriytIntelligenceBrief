@@ -11,7 +11,7 @@ failure. Orchestration owns isolation, health reporting and retry policy.
 """
 
 from __future__ import annotations
-
+from .config import BRIEF_VERSION
 import os
 import sys
 import time
