@@ -1,3 +1,8 @@
+<!--
+Copyright © 2026 John-Helge Gantz. All rights reserved.
+Proprietary software. See LICENSE.
+-->
+
 # Optimisation Notes — Version 4.2
 
 ## Objective
@@ -147,15 +152,3 @@ The largest remaining modules are intentionally data- or template-heavy:
 - `rules.py`
 - `sources.py`
 - `rendering.py`
-
-Possible future improvements:
-
-1. Move source definitions to validated YAML or JSON.
-2. Move relevance rules to configuration with schema validation.
-3. Add persistent cross-run deduplication.
-4. Add source freshness and parser-health metrics.
-5. Add typed source-health records instead of dictionaries.
-6. Add customer profiles and supplier mappings as configuration.
-7. Add structured ticket or case export.
-8. Add a supported commercial dark-web provider for direct authorised
-   monitoring.
