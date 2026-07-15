@@ -1,4 +1,7 @@
-name: Daily Security Brief v4.2
+# Copyright © 2026 John-Helge Gantz. All rights reserved.
+# Proprietary software. See LICENSE.
+
+name: Daily Security Brief v5.0
 
 on:
   schedule:
