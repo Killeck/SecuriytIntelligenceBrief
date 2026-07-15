@@ -1,3 +1,9 @@
+# Copyright © 2026 John-Helge Gantz. All rights reserved.
+#
+# Proprietary and confidential.
+# Unauthorised use, copying, modification or distribution is prohibited.
+# See the LICENSE file at the repository root for complete terms.
+
 """Small deterministic helpers used across the pipeline."""
 
 from __future__ import annotations
