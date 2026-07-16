@@ -23,7 +23,7 @@ uses semantic-style versioning where practical.
 - clickable links fixed by title and anchor_id
 - Multi row display for vendors
 
-### Fixed
+### Changed
 - Calculation error adjustment between Vendor Alerts and Vendor Updates
 
 ### Removed
