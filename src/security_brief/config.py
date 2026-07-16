@@ -10,7 +10,6 @@ import re
 from pathlib import Path
 from zoneinfo import ZoneInfo
 
-
 BRIEF_NAME = "Daily Security Brief"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
@@ -21,23 +20,16 @@ def _load_version() -> str:
     """Read and validate the repository VERSION file."""
 
     try:
-        version = VERSION_FILE.read_text(
-            encoding="utf-8"
-        ).strip()
+        version = VERSION_FILE.read_text(encoding="utf-8").strip()
     except OSError as error:
         raise RuntimeError(
             f"Unable to read version file: {VERSION_FILE}"
         ) from error
 
     if not version:
-        raise RuntimeError(
-            f"Version file is empty: {VERSION_FILE}"
-        )
+        raise RuntimeError(f"Version file is empty: {VERSION_FILE}")
 
-    if not re.fullmatch(
-        r"\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.-]+)?",
-        version,
-    ):
+    if not re.fullmatch(r"\d+\.\d+(?:\.\d+)?(?:[-+][0-9A-Za-z.-]+)?", version):
         raise RuntimeError(
             f"Invalid version value {version!r} in {VERSION_FILE}"
         )
@@ -58,29 +50,25 @@ CISA_KEV_FEED = (
 )
 
 CISA_KEV_CATALOGUE = (
-    "https://www.cisa.gov/"
-    "known-exploited-vulnerabilities-catalog"
+    "https://www.cisa.gov/known-exploited-vulnerabilities-catalog"
 )
 
-NVD_CVE_API = (
-    "https://services.nvd.nist.gov/rest/json/cves/2.0"
-)
+NVD_CVE_API = "https://services.nvd.nist.gov/rest/json/cves/2.0"
 
-HIBP_BREACHES_API = (
-    "https://haveibeenpwned.com/api/v3/breaches"
-)
+FIRST_EPSS_API = "https://api.first.org/data/v1/epss"
+
+MSRC_UPDATES_API = "https://api.msrc.microsoft.com/cvrf/v3.0/updates"
+MSRC_CVRF_API = "https://api.msrc.microsoft.com/cvrf/v3.0/cvrf"
+
+HIBP_BREACHES_API = "https://haveibeenpwned.com/api/v3/breaches"
 
 HIBP_BREACHED_DOMAIN_API = (
     "https://haveibeenpwned.com/api/v3/breachedDomain"
 )
 
-HIBP_PWNED_WEBSITES = (
-    "https://haveibeenpwned.com/PwnedWebsites"
-)
+HIBP_PWNED_WEBSITES = "https://haveibeenpwned.com/PwnedWebsites"
 
-HIBP_DASHBOARD = (
-    "https://haveibeenpwned.com/Dashboard"
-)
+HIBP_DASHBOARD = "https://haveibeenpwned.com/Dashboard"
 
 OSLO_TIMEZONE = ZoneInfo("Europe/Oslo")
 
