@@ -1,0 +1,44 @@
+name: Test security news briefing
+
+on:
+  workflow_dispatch:
+    inputs:
+      lookback_hours:
+        description: Reporting window in hours
+        required: true
+        default: "72"
+        type: string
+      max_items:
+        description: Maximum number of stories
+        required: true
+        default: "15"
+        type: string
+
+permissions:
+  contents: read
+
+jobs:
+  send-news-brief:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v7
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+
+      - name: Install dependencies
+        run: python -m pip install --requirement requirements.txt
+
+      - name: Send news briefing
+        env:
+          GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
+          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          NEWS_LOOKBACK_HOURS: ${{ inputs.lookback_hours }}
+          NEWS_MAX_ITEMS: ${{ inputs.max_items }}
+        run: python src/send_news_brief.py
