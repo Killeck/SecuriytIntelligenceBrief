@@ -1,12 +1,12 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
 # Proprietary and confidential. See LICENSE.
 
-"""Offline regression tests for the briefing pipeline."""
+"""Offline regression tests for the optimised briefing pipeline."""
 
 from __future__ import annotations
 
 import unittest
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from unittest.mock import patch
 
@@ -18,25 +18,32 @@ from security_brief.analysis import (
     build_sector_impacts,
     deduplicate_exposure_signals,
 )
-from security_brief.app import (
-    FetchTask,
-    PipelineState,
-    collect_tasks,
-)
+from security_brief.app import FetchTask, PipelineState, collect_tasks
 from security_brief.collectors import (
     canonicalise_article_url,
     executive_article_url_allowed,
 )
 from security_brief.models import Item, NewsLink
 from security_brief.rendering import render_report
+from security_brief.sources import (
+    EXECUTIVE_NEWS_RSS,
+    HTML_SOURCES,
+    RSS_SOURCES,
+)
 
 
 class MockResponse:
     """Minimal requests-compatible response used by collector tests."""
 
-    def __init__(self, payload: object, status_code: int = 200) -> None:
+    def __init__(
+        self,
+        payload: object,
+        status_code: int = 200,
+        content: bytes = b"",
+    ) -> None:
         self._payload = payload
         self.status_code = status_code
+        self.content = content
 
     def raise_for_status(self) -> None:
         if self.status_code >= 400:
@@ -47,11 +54,10 @@ class MockResponse:
 
 
 class PipelineTests(unittest.TestCase):
-    """Validate collection, exposure mapping and report rendering."""
+    """Validate failure isolation, exposure mapping and report rendering."""
 
     def setUp(self) -> None:
         self.now = datetime.now(timezone.utc)
-
         self.item = Item(
             title="Actively exploited Fortinet authentication bypass",
             summary=(
@@ -72,7 +78,6 @@ class PipelineTests(unittest.TestCase):
             action="Patch and investigate exposed appliances.",
             why="The flaw can provide initial access.",
         )
-
         self.news = NewsLink(
             title="Ransomware group claims Nordic retail supplier",
             link="https://example.invalid/ransomware",
@@ -92,10 +97,7 @@ class PipelineTests(unittest.TestCase):
 
     def test_reuters_article_url_validation(self) -> None:
         source = {
-            "allowed_hosts": (
-                "www.reuters.com",
-                "reuters.com",
-            ),
+            "allowed_hosts": ("www.reuters.com", "reuters.com"),
             "article_path_regex": (
                 r"^/(technology|world|legal|business|sustainability)/"
                 r".+-\d{4}-\d{2}-\d{2}/?$"
@@ -109,25 +111,16 @@ class PipelineTests(unittest.TestCase):
         }
 
         valid_urls = (
-            (
-                "https://www.reuters.com/technology/"
-                "example-cyber-story-2026-07-14"
-            ),
-            (
-                "https://www.reuters.com/world/"
-                "example-ransomware-story-2026-07-14"
-            ),
+            "https://www.reuters.com/technology/example-cyber-story-2026-07-14",
+            "https://www.reuters.com/world/example-ransomware-story-2026-07-14",
             (
                 "https://www.reuters.com/legal/government/"
                 "example-cyber-law-story-2026-07-14"
             ),
         )
-
         for url in valid_urls:
             with self.subTest(url=url):
-                self.assertTrue(
-                    executive_article_url_allowed(source, url)
-                )
+                self.assertTrue(executive_article_url_allowed(source, url))
 
         invalid_urls = (
             "https://www.reuters.com/technology/cybersecurity/",
@@ -135,12 +128,9 @@ class PipelineTests(unittest.TestCase):
             "https://www.reuters.com/world/",
             "https://example.com/technology/fake-2026-07-14/",
         )
-
         for url in invalid_urls:
             with self.subTest(url=url):
-                self.assertFalse(
-                    executive_article_url_allowed(source, url)
-                )
+                self.assertFalse(executive_article_url_allowed(source, url))
 
     def test_bankinfosecurity_article_url_validation(self) -> None:
         source = {
@@ -148,9 +138,7 @@ class PipelineTests(unittest.TestCase):
                 "www.bankinfosecurity.com",
                 "bankinfosecurity.com",
             ),
-            "article_path_regex": (
-                r"^/[a-z0-9][a-z0-9-]*-a-\d+/?$"
-            ),
+            "article_path_regex": r"^/[a-z0-9][a-z0-9-]*-a-\d+/?$",
             "exclude": (
                 "/webinars/",
                 "/events/",
@@ -170,18 +158,14 @@ class PipelineTests(unittest.TestCase):
             )
         )
 
-        invalid_urls = (
+        for url in (
             "https://www.bankinfosecurity.com/latest-news",
             "https://www.bankinfosecurity.com/topics/ransomware",
             "https://www.bankinfosecurity.com/webinars/example",
             "https://www.bankinfosecurity.com/",
-        )
-
-        for url in invalid_urls:
+        ):
             with self.subTest(url=url):
-                self.assertFalse(
-                    executive_article_url_allowed(source, url)
-                )
+                self.assertFalse(executive_article_url_allowed(source, url))
 
     def test_article_url_canonicalisation(self) -> None:
         url = (
@@ -189,13 +173,9 @@ class PipelineTests(unittest.TestCase):
             "example-security-story-a-12345/"
             "?utm_source=newsletter#article"
         )
-
         self.assertEqual(
             canonicalise_article_url(url),
-            (
-                "https://www.bankinfosecurity.com/"
-                "example-security-story-a-12345"
-            ),
+            "https://www.bankinfosecurity.com/example-security-story-a-12345",
         )
 
     def test_parallel_collection_preserves_health_order(self) -> None:
@@ -210,7 +190,6 @@ class PipelineTests(unittest.TestCase):
             FetchTask(name="Second", fetch=fail),
             FetchTask(name="Third", fetch=lambda: [3]),
         ]
-
         collect_tasks(tasks, target, state, workers=3)
 
         self.assertEqual(target, [1, 3])
@@ -233,13 +212,8 @@ class PipelineTests(unittest.TestCase):
                 "BreachDate": "2026-07-13",
                 "AddedDate": self.now.isoformat(),
                 "PwnCount": 250000,
-                "Description": (
-                    "<p>Email addresses and passwords were exposed.</p>"
-                ),
-                "DataClasses": [
-                    "Email addresses",
-                    "Passwords",
-                ],
+                "Description": "<p>Email addresses and passwords were exposed.</p>",
+                "DataClasses": ["Email addresses", "Passwords"],
                 "IsVerified": True,
                 "IsSpamList": False,
                 "IsRetired": False,
@@ -254,12 +228,7 @@ class PipelineTests(unittest.TestCase):
             return_value=MockResponse(payload),
         ):
             signals = collectors.fetch_hibp_breaches(
-                self.now.replace(
-                    hour=0,
-                    minute=0,
-                    second=0,
-                    microsecond=0,
-                )
+                self.now.replace(hour=0, minute=0, second=0, microsecond=0)
             )
 
         self.assertEqual(len(signals), 1)
@@ -270,12 +239,142 @@ class PipelineTests(unittest.TestCase):
         self.assertEqual(signals[0].confidence, "Verified")
         self.assertNotIn("@", signals[0].affected)
 
+    def test_priority_source_additions_are_configured(self) -> None:
+        primary_names = {source.name for source in RSS_SOURCES + HTML_SOURCES}
+        discovery_names = {source["name"] for source in EXECUTIVE_NEWS_RSS}
+
+        for expected in (
+            "Microsoft Security Response Center",
+            "CERT-EU Security Advisories",
+            "Google Threat Intelligence",
+            "Rapid7 Vulnerability Research",
+            "Shadowserver Foundation",
+        ):
+            self.assertIn(expected, primary_names)
+        self.assertIn("Ransomware.live", discovery_names)
+
+    def test_epss_enrichment_adjusts_priority_without_claiming_exploitation(self) -> None:
+        self.item.exploited = False
+        self.item.kev = False
+        original_score = self.item.score
+        payload = {
+            "data": [
+                {
+                    "cve": "CVE-2026-12345",
+                    "epss": "0.650000",
+                    "percentile": "0.990000",
+                }
+            ]
+        }
+
+        with patch.object(
+            collectors,
+            "http_get",
+            return_value=MockResponse(payload),
+        ):
+            warnings: list[str] = []
+            collectors.enrich_epss([self.item], warnings)
+
+        self.assertEqual(warnings, [])
+        self.assertEqual(self.item.score, original_score + 25)
+        self.assertIn("EPSS: 65.0%", self.item.why)
+        self.assertFalse(self.item.exploited)
+        self.assertFalse(self.item.kev)
+
+    def test_ransomware_live_is_discovery_only_and_unverified(self) -> None:
+        source = next(
+            record
+            for record in EXECUTIVE_NEWS_RSS
+            if record["name"] == "Ransomware.live"
+        )
+        payload = [
+            {
+                "victim": "Example Organisation",
+                "group": "Example Group",
+                "discovered": self.now.isoformat(),
+                "country": "NO",
+                "activity": "Information technology",
+                "post_url": "https://www.ransomware.live/claim/example",
+            }
+        ]
+
+        with patch.object(
+            collectors,
+            "http_get",
+            return_value=MockResponse(payload),
+        ):
+            links = collectors.fetch_executive_news_rss(
+                source,
+                self.now - timedelta(hours=1),
+            )
+
+        self.assertEqual(len(links), 1)
+        self.assertIn("Unverified ransomware claim", links[0].title)
+        self.assertIn("Unverified claim", links[0].tags)
+        self.assertIn("independently corroborated", links[0].summary)
+
+    def test_msrc_api_expands_release_into_cve_items(self) -> None:
+        source = next(
+            record
+            for record in RSS_SOURCES
+            if record.name == "Microsoft Security Response Center"
+        )
+        update_payload = {
+            "value": [
+                {
+                    "ID": "2026-Jul",
+                    "DocumentTitle": "July 2026 Security Updates",
+                    "CurrentReleaseDate": self.now.isoformat(),
+                    "Severity": "Critical",
+                }
+            ]
+        }
+        detail_payload = {
+            "Vulnerability": [
+                {
+                    "CVE": "CVE-2026-11111",
+                    "Title": {"Value": "Microsoft test remote code execution"},
+                    "Notes": [
+                        {
+                            "Type": "Description",
+                            "Value": "A remote code execution vulnerability.",
+                        }
+                    ],
+                    "CVSSScoreSets": [
+                        {
+                            "BaseScore": "9.8",
+                            "Vector": "CVSS:3.1/AV:N/AC:L/PR:N/UI:N/S:U/C:H/I:H/A:H",
+                        }
+                    ],
+                    "Threats": [
+                        {"Description": {"Value": "Exploitation Detected"}}
+                    ],
+                }
+            ]
+        }
+
+        with patch.object(
+            collectors,
+            "http_get",
+            side_effect=[
+                MockResponse(update_payload),
+                MockResponse(detail_payload),
+            ],
+        ):
+            items = collectors.fetch_rss(
+                source,
+                self.now - timedelta(hours=1),
+            )
+
+        self.assertEqual(len(items), 1)
+        self.assertEqual(items[0].cves, ["CVE-2026-11111"])
+        self.assertTrue(items[0].exploited)
+        self.assertEqual(items[0].source, "Microsoft Security Response Center")
+        self.assertEqual(items[0].section, "Microsoft, Azure and Identity")
+
     def test_version_matches_repository_file(self) -> None:
         project_root = Path(__file__).resolve().parents[1]
-        expected = (
-            project_root / "VERSION"
-        ).read_text(encoding="utf-8").strip()
-
+        expected = (project_root / "VERSION").read_text(encoding="utf-8").strip()
         self.assertEqual(BRIEF_VERSION, expected)
 
     def test_report_retains_advisory_and_ciso_views(self) -> None:
@@ -289,20 +388,9 @@ class PipelineTests(unittest.TestCase):
             ),
             20,
         )
-
-        sector_impacts = build_sector_impacts(
-            [self.item],
-            [self.news],
-        )
-
-        detections = build_detection_opportunities(
-            [self.item]
-        )
-
-        regional = build_regional_links(
-            [self.item],
-            [self.news],
-        )
+        sector_impacts = build_sector_impacts([self.item], [self.news])
+        detections = build_detection_opportunities([self.item])
+        regional = build_regional_links([self.item], [self.news])
 
         text_body, html_body = render_report(
             items=[self.item],
@@ -345,10 +433,7 @@ class PipelineTests(unittest.TestCase):
             "Recommended Actions Today",
             "Daily Security Brief © 2026 John-Helge Gantz",
         ):
-            self.assertIn(
-                expected,
-                text_body + html_body,
-            )
+            self.assertIn(expected, text_body + html_body)
 
 
 if __name__ == "__main__":
