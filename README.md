@@ -423,6 +423,22 @@ See `OPTIMISATION.md` for the detailed before-and-after design notes.
 └── requirements.txt
 ```
 
+
+## Email delivery and filtering
+
+The outbound subject is deliberately neutral: `Security Intelligence Brief`.
+Threat level, severity and version information remain inside the report body.
+
+The SMTP sender is always the authenticated `GMAIL_USERNAME`. The message adds
+standard date, message-ID and automated-message headers. Unverified ransomware
+aggregation URLs are not embedded as clickable links because URL reputation
+filters may treat them as suspicious even when the surrounding report is
+legitimate.
+
+If delivery remains blocked, inspect the receiving mail gateway or the message
+"Show original" view for SPF, DKIM and DMARC results. A custom-domain Google
+Workspace sender must have DKIM enabled for that domain.
+
 ## Required GitHub secrets
 
 Create under:
