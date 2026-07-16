@@ -17,6 +17,31 @@ The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and u
 
 ---
 ## 5.3.0 - 2026-07-16
+Security Intelligence Brief v5.3.0 review
+
+## Implemented
+
+- Neutral outbound subject: `Security Intelligence Brief`.
+- Weighted threat and advisory levels based on evidence, impact, EPSS, CVSS, KEV and confidence.
+- Zero-day references no longer imply confirmed exploitation.
+- Generic country references and broad ransomware language no longer automatically escalate the report.
+- Critical advisory status requires direct verified exposure or an exceptional corroborated enterprise condition.
+- Added standards-compliant Date, Message-ID, Reply-To and automated-message headers.
+- Kept the authenticated Gmail or Google Workspace account as the sender.
+- Removed clickable Ransomware.live and unverified-claim URLs from email content.
+- Reduced Ransomware.live to one discovery result and lowered its selection score.
+- Removed the obsolete v5.0 suffix from the manual test workflow.
+- Removed already completed cross-reference work from MAINTENANCE.md.
+- Fixed a missing `Any` import and avoided BeautifulSoup URL warnings in `clean_text`.
+
+## Deliverability assessment
+
+Post-5.0 filtering changes were:
+
+1. An alarmist subject containing `Critical Advisory` and `DEFCON`.
+2. The addition of clickable Ransomware.live URLs in v5.2.
+3. Increased security-domain and threat-related link density after the source expansion.
+4. Missing explicit Date and Message-ID headers in the locally constructed message.
 
 
 ---
