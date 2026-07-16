@@ -13,8 +13,12 @@ formal v4.0 release. Versions before 4.0 below are reconstructed from those
 milestones and repository changes; they were not all published as formal
 releases.
 
-The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and
-uses semantic-style versioning where practical.
+The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and uses semantic-style versioning where practical.
+
+---
+## 5.3.0 - 2026-07-16
+
+
 ---
 ## 5.2.0 - 2026-07-16
 Security Intelligence Source Expansion
