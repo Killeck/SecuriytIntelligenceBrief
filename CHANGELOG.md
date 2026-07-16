@@ -15,6 +15,39 @@ releases.
 
 The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and
 uses semantic-style versioning where practical.
+---
+## 5.2.0 - 2026-07-16
+Security Intelligence Source Expansion
+This update adds the priority intelligence sources and enrichments identified for the Daily Security Brief.
+
+### Added
+
+#### Authoritative and primary intelligence
+- Microsoft Security Response Center Security Update Guide API
+  - Expands current MSRC releases into one item per CVE.
+  - Preserves Microsoft as the authoritative source.
+  - Marks active exploitation only when the MSRC threat data explicitly reports it.
+- CERT-EU Security Advisories RSS
+- Google Threat Intelligence RSS
+- Rapid7 Vulnerability Research
+- Shadowserver Foundation news and research
+
+#### Vulnerability prioritisation
+
+- FIRST EPSS batch enrichment
+  - Queries up to 200 unique CVEs by default.
+  - Adds probability and percentile context to `why`.
+  - Adjusts prioritisation score without setting `exploited` or `kev`.
+  - Configure with `EPSS_MAX_CVES`; accepted range is 1–1000.
+
+#### Ransomware discovery
+
+- Ransomware.live public aggregation API
+  - Remains in the secondary discovery and exposure path.
+  - Every record is labelled `Unverified claim`.
+  - Does not set KEV, CVSS, zero-day or confirmed exploitation state.
+  - Uses `RANSOMWARE_LIVE_API_KEY` only when supplied.
+  - Does not connect directly to onion services, criminal forums, leak sites or stolen-data repositories.
 
 ---
 ## 5.1.0 - 2026-07-15
