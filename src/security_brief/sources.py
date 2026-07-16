@@ -32,7 +32,7 @@ EXECUTIVE_NEWS_RSS = (
     {
         "name": "Ransomware.live",
         "url": "https://api.ransomware.live/v2/recentvictims",
-        "base_score": 18,
+        "base_score": 10,
         "adapter": "ransomware_live",
     },
 )
@@ -210,7 +210,7 @@ EXECUTIVE_NEWS_SOURCE_LIMITS = {
     "BankInfoSecurity": 1,
     "SC World": 1,
     "Industrial Cyber": 2,
-    "Ransomware.live": 3,
+    "Ransomware.live": 1,
 }
 
 RSS_SOURCES = (

@@ -11,8 +11,6 @@ which substantially reduces total runtime without increasing per-source load.
 
 from __future__ import annotations
 
-from __future__ import annotations
-
 import os
 import sys
 from concurrent.futures import ThreadPoolExecutor
@@ -28,7 +26,6 @@ from .analysis import (
     build_sector_impacts,
     deduplicate,
     deduplicate_exposure_signals,
-    defcon_status,
     select_executive_news,
     select_final_items,
 )
@@ -43,7 +40,7 @@ from .collectors import (
     fetch_recent_nvd_coverage,
     fetch_rss,
 )
-from .config import BRIEF_NAME, BRIEF_VERSION, OSLO_TIMEZONE
+from .config import EMAIL_SUBJECT, OSLO_TIMEZONE
 from .sources import (
     EXECUTIVE_NEWS_HTML,
     EXECUTIVE_NEWS_RSS,
@@ -443,12 +440,7 @@ def run_pipeline(settings: RuntimeSettings) -> None:
     )
 
     advisory = advisory_status(items, exposure_signals)
-    enterprise = defcon_status(items)
-    subject = (
-        f"{advisory['display']} Advisory | "
-        f"{enterprise['display']} | "
-        f"{BRIEF_NAME} v{BRIEF_VERSION}"
-    )
+    subject = EMAIL_SUBJECT
 
     send_email(
         settings.username,

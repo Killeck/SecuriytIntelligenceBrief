@@ -685,7 +685,7 @@ def fetch_ransomware_live(
                 link=source_link,
                 source=source["name"],
                 published=published,
-                score=int(source.get("base_score", 18)) + 55,
+                score=int(source.get("base_score", 10)) + 20,
                 tags=[
                     "Dark Web/Exposure",
                     "Ransomware",

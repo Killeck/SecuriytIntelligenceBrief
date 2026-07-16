@@ -11,6 +11,7 @@ import os
 import re
 from datetime import date, datetime, timezone
 from functools import lru_cache
+from typing import Any
 from urllib.parse import urljoin
 
 from bs4 import BeautifulSoup
@@ -124,7 +125,11 @@ def clean_text(value: Any) -> str:
     if value is None:
         return ""
 
-    soup = BeautifulSoup(str(value), "html.parser")
+    text = str(value)
+    if "<" not in text and ">" not in text:
+        return re.sub(r"\s+", " ", text).strip()
+
+    soup = BeautifulSoup(text, "html.parser")
     return re.sub(r"\s+", " ", soup.get_text(" ", strip=True)).strip()
 
 def absolute_url(base: str, href: str) -> str:

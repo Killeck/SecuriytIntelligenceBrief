@@ -11,6 +11,7 @@ from pathlib import Path
 from zoneinfo import ZoneInfo
 
 BRIEF_NAME = "Daily Security Brief"
+EMAIL_SUBJECT = "Security Intelligence Brief"
 
 PROJECT_ROOT = Path(__file__).resolve().parents[2]
 VERSION_FILE = PROJECT_ROOT / "VERSION"

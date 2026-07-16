@@ -11,7 +11,8 @@ from __future__ import annotations
 
 import html
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Iterable
+from urllib.parse import urlsplit
 
 from .analysis import (
     advisory_actions,
@@ -35,6 +36,59 @@ from .models import (
     SectorImpact,
 )
 from .utils import truncate
+
+
+_BLOCKED_EMAIL_LINK_HOSTS = {
+    "ransomware.live",
+    "www.ransomware.live",
+    "api.ransomware.live",
+}
+
+
+def _email_link_allowed(
+    url: str,
+    *,
+    source: str = "",
+    confidence: str = "",
+    tags: Iterable[str] = (),
+) -> bool:
+    """Keep unverified or high-risk discovery URLs out of the email body."""
+
+    if not url:
+        return False
+    lowered_source = source.lower()
+    lowered_confidence = confidence.lower()
+    lowered_tags = {str(tag).lower() for tag in tags}
+    if "ransomware.live" in lowered_source:
+        return False
+    if "unverified" in lowered_confidence or "unverified claim" in lowered_tags:
+        return False
+    parsed = urlsplit(url)
+    if parsed.scheme not in {"http", "https"}:
+        return False
+    host = parsed.netloc.lower().split(":", 1)[0]
+    if host.endswith(".onion") or host in _BLOCKED_EMAIL_LINK_HOSTS:
+        return False
+    return True
+
+
+def _plain_email_link(
+    url: str,
+    *,
+    source: str = "",
+    confidence: str = "",
+    tags: Iterable[str] = (),
+) -> str:
+    """Return a URL or an explicit withheld-link marker for plain text."""
+
+    if _email_link_allowed(
+        url,
+        source=source,
+        confidence=confidence,
+        tags=tags,
+    ):
+        return url
+    return "Link withheld from email"
 
 def render_item_text(item: Item, number: int) -> list[str]:
     """Render one primary intelligence item for the plain-text email body."""
@@ -182,12 +236,18 @@ def render_exposure_text(
         f"   Summary: {signal.summary}",
         f"   Potentially affected: {signal.affected}",
         f"   Advisory action: {signal.action}",
-        f"   Link: {signal.link}",
+        f"   Link: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}",
     ]
 
 def render_exposure_html(signal: ExposureSignal) -> str:
     """Render one exposure signal as a distinct HTML exposure card."""
 
+    source_link = _link(
+        "Open supporting source",
+        signal.link,
+        source=signal.source,
+        confidence=signal.confidence,
+    )
     return f"""
     <article style="
         border:1px solid #7d4e9e;
@@ -240,11 +300,7 @@ def render_exposure_html(signal: ExposureSignal) -> str:
       <h4>Security advisory action</h4>
       <p>{html.escape(signal.action)}</p>
 
-      <p>
-        <a href="{html.escape(signal.link, quote=True)}">
-          Open supporting source
-        </a>
-      </p>
+      <p>{source_link}</p>
     </article>
     <hr style="
         border:0;
@@ -479,7 +535,7 @@ def render_text_report(
         for signal in top_exposure:
             text.append(
                 f"- [{signal.severity}/{signal.confidence}] "
-                f"{signal.title} — {signal.source}: {signal.link}"
+                f"{signal.title} — {signal.source}: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}"
             )
 
     if ransomware_watch:
@@ -487,7 +543,7 @@ def render_text_report(
         for signal in ransomware_watch:
             text.append(
                 f"- [{signal.confidence}] {signal.title} "
-                f"— {signal.source}: {signal.link}"
+                f"— {signal.source}: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}"
             )
 
     if credential_watch:
@@ -495,7 +551,7 @@ def render_text_report(
         for signal in credential_watch:
             text.append(
                 f"- [{signal.confidence}] {signal.title} "
-                f"— {signal.source}: {signal.link}"
+                f"— {signal.source}: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}"
             )
 
     if executive_news:
@@ -517,7 +573,7 @@ def render_text_report(
             )
             text.append(
                 f"- {tag_text}{news_link.title} "
-                f"— {news_link.source}: {news_link.link}"
+                f"— {news_link.source}: {_plain_email_link(news_link.link, source=news_link.source, tags=news_link.tags)}"
             )
 
     text.extend(["", "Zero-Day and CVSS 10.0"])
@@ -826,9 +882,26 @@ def _pill(text: str, colour: str | None = None) -> str:
     )
 
 
-def _link(label: str, url: str) -> str:
-    """Render a restrained purple report link."""
+def _link(
+    label: str,
+    url: str,
+    *,
+    source: str = "",
+    confidence: str = "",
+    tags: Iterable[str] = (),
+) -> str:
+    """Render a restrained link or safe withheld-link label."""
 
+    if not _email_link_allowed(
+        url,
+        source=source,
+        confidence=confidence,
+        tags=tags,
+    ):
+        return (
+            f'<span style="color:{DASHBOARD_COLOURS["muted"]};">'
+            f'{_escape(label)} (link withheld)</span>'
+        )
     return (
         f'<a href="{html.escape(url, quote=True)}" '
         f'style="color:{DASHBOARD_COLOURS["link"]};'
@@ -1191,7 +1264,7 @@ def _render_exposure_cards(signals: list[ExposureSignal], limit: int = 4) -> str
                     <span style="color:{DASHBOARD_COLOURS['text']};">
                       {_escape(truncate(signal.action, 72))}
                     </span><br>
-                    {_link("Open source ›", signal.link)}
+                    {_link("Open source ›", signal.link, source=signal.source, confidence=signal.confidence)}
                   </td>
                 </tr>
               </table>
@@ -1498,7 +1571,7 @@ def _render_news_digest(news: list[NewsLink], limit: int = 6) -> str:
               <td valign="top" style="padding:6px 6px;
                    border-top:1px solid {DASHBOARD_COLOURS['border']};">
                 <div style="font-size:12px;font-weight:700;">
-                  {_link(item.title, item.link)}
+                  {_link(item.title, item.link, source=item.source, tags=item.tags)}
                 </div>
                 <div style="color:{DASHBOARD_COLOURS['muted']};
                             font-size:11px;margin-top:2px;">
