@@ -17,8 +17,19 @@ The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and
 uses semantic-style versioning where practical.
 
 ---
+## 5.1.0 - 2026-07-15
 
+### Added
+- clickable links fixed by title and anchor_id
+- Multi row display for vendors
 
+### Fixed
+- Calculation error adjustment between Vendor Alerts and Vendor Updates
+
+### Removed
+- five-card limit form vendor groups
+
+---
 ## 5.0.0 — 2026-07-15
 
 ### Summary
