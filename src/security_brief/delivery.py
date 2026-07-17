@@ -1,13 +1,20 @@
 # Copyright © 2026 John-Helge Gantz. All rights reserved.
 # Proprietary and confidential. See LICENSE.
 
-"""SMTP delivery for the rendered briefing."""
+"""Gmail API delivery for the rendered briefing."""
 
 from __future__ import annotations
 
-import smtplib
-import ssl
+import base64
 from email.message import EmailMessage
+
+from google.auth.transport.requests import Request
+from google.oauth2.credentials import Credentials
+from googleapiclient.discovery import build
+
+
+GMAIL_SEND_SCOPE = "https://www.googleapis.com/auth/gmail.send"
+GOOGLE_TOKEN_URI = "https://oauth2.googleapis.com/token"
 
 
 def build_message(
@@ -17,7 +24,7 @@ def build_message(
     text_body: str,
     html_body: str,
 ) -> EmailMessage:
-    """Build the same simple multipart structure used by V5.0."""
+    """Build the multipart briefing message."""
 
     message = EmailMessage()
     message["From"] = username
@@ -30,13 +37,15 @@ def build_message(
 
 def send_email(
     username: str,
-    password: str,
+    client_id: str,
+    client_secret: str,
+    refresh_token: str,
     recipient: str,
     subject: str,
     text_body: str,
     html_body: str,
 ) -> None:
-    """Send the multipart briefing through Gmail SMTP with STARTTLS."""
+    """Send the multipart briefing through the Gmail API."""
 
     message = build_message(
         username,
@@ -45,14 +54,36 @@ def send_email(
         text_body,
         html_body,
     )
-    context = ssl.create_default_context()
 
-    with smtplib.SMTP("smtp.gmail.com", 587, timeout=60) as smtp:
-        smtp.ehlo()
-        smtp.starttls(context=context)
-        smtp.ehlo()
-        smtp.login(username, password.replace(" ", ""))
-        refused = smtp.send_message(message)
+    credentials = Credentials(
+        token=None,
+        refresh_token=refresh_token,
+        token_uri=GOOGLE_TOKEN_URI,
+        client_id=client_id,
+        client_secret=client_secret,
+        scopes=[GMAIL_SEND_SCOPE],
+    )
+    credentials.refresh(Request())
 
-        if refused:
-            raise RuntimeError(f"SMTP refused recipients: {refused}")
+    service = build(
+        "gmail",
+        "v1",
+        credentials=credentials,
+        cache_discovery=False,
+    )
+    raw_message = base64.urlsafe_b64encode(
+        message.as_bytes()
+    ).decode("ascii")
+
+    response = (
+        service.users()
+        .messages()
+        .send(
+            userId="me",
+            body={"raw": raw_message},
+        )
+        .execute()
+    )
+
+    if not response.get("id"):
+        raise RuntimeError("Gmail API returned no message ID.")
