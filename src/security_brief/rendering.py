@@ -28,6 +28,7 @@ from .config import (
     MONITORED_GOVERNANCE_TOPICS,
 )
 from .rules import EXPOSURE_SECTION_ORDER
+from .governance import GOVERNANCE_HORIZONS
 from .models import (
     DetectionOpportunity,
     ExposureSignal,
@@ -42,6 +43,30 @@ _BLOCKED_EMAIL_LINK_HOSTS = {
     "ransomware.live",
     "www.ransomware.live",
     "api.ransomware.live",
+}
+
+
+_VENDOR_INFORMATION_URLS = {
+    "Microsoft": "https://msrc.microsoft.com/update-guide/",
+    "Fortinet": "https://www.fortiguard.com/psirt",
+    "Palo Alto": "https://security.paloaltonetworks.com/",
+    "Cisco": "https://sec.cloudapps.cisco.com/security/center/publicationListing.x",
+    "HPE / Aruba": "https://support.hpe.com/connect/s/securitybulletinlibrary",
+}
+
+_VENDOR_NAME_INFORMATION_URLS = {
+    "amazon": "https://aws.amazon.com/security/security-bulletins/",
+    "aws": "https://aws.amazon.com/security/security-bulletins/",
+    "google": "https://cloud.google.com/support/bulletins",
+    "okta": "https://trust.okta.com/security-advisories/",
+    "apple": "https://support.apple.com/en-us/100100",
+    "adobe": "https://helpx.adobe.com/security.html",
+    "atlassian": "https://www.atlassian.com/trust/security/advisories",
+    "broadcom": "https://support.broadcom.com/security-advisories",
+    "vmware": "https://support.broadcom.com/web/ecx/security-advisory",
+    "ivanti": "https://forums.ivanti.com/s/security-advisories",
+    "oracle": "https://www.oracle.com/security-alerts/",
+    "sap": "https://support.sap.com/en/my-support/knowledge-base/security-notes-news.html",
 }
 
 
@@ -641,18 +666,21 @@ def render_text_report(
                 f"— {item.source}: {item.link}"
             )
 
-    if upcoming_events:
-        text.extend(
-            [
-                "",
-                f"Going Live Today or Within {upcoming_days} Days",
-            ]
-        )
-        for event in upcoming_events:
-            text.append(
-                f"- {event['date']}: {event['title']} "
-                f"({event.get('topic') or event.get('source')})"
-            )
+    text.extend(["", "Governance Forward Look"])
+    for label, _, _ in GOVERNANCE_HORIZONS:
+        horizon_events = [
+            event for event in upcoming_events
+            if event.get("horizon") == label
+        ]
+        text.append(f"- {label}:")
+        if horizon_events:
+            for event in horizon_events[:2]:
+                text.append(
+                    f"  {event['date']}: {event['title']} "
+                    f"({event.get('topic') or event.get('source')})"
+                )
+        else:
+            text.append("  No confirmed milestone currently recorded.")
 
     for exposure_section in EXPOSURE_SECTION_ORDER:
         section_signals = exposure_grouped.get(
@@ -1024,14 +1052,26 @@ def _metric_card(
     """
 
 
+def _bold_prefix_html(text: str) -> str:
+    """Escape text and bold the first meaningful label before a colon."""
+
+    prefix, separator, remainder = text.partition(":")
+    if separator and prefix.strip() and remainder.strip():
+        return (
+            f'<strong style="color:{DASHBOARD_COLOURS["text"]};">'
+            f'{_escape(prefix.strip())}</strong>: {_escape(remainder.strip())}'
+        )
+    return _escape(text)
+
+
 def _compact_bullet(text: str, accent: str = "#6ea8fe") -> str:
-    """Render one short TL;DR line."""
+    """Render one short TL;DR line with a bold label before the first colon."""
 
     return (
         '<tr><td valign="top" style="padding:3px 8px 3px 0;'
         f'color:{accent};font-weight:700;">•</td>'
         f'<td style="padding:3px 0;color:{DASHBOARD_COLOURS["text"]};'
-        f'font-size:13px;line-height:1.35;">{_escape(text)}</td></tr>'
+        f'font-size:13px;line-height:1.35;">{_bold_prefix_html(text)}</td></tr>'
     )
 
 
@@ -1309,8 +1349,36 @@ def _vendor_key(item: Item) -> str:
     return "Other Vendors"
 
 
+def _vendor_information_url(vendor: str, items: list[Item]) -> str:
+    """Return the vendor's general security-advisory or bulletin page."""
+
+    direct = _VENDOR_INFORMATION_URLS.get(vendor)
+    if direct:
+        return direct
+
+    vendor_text = " ".join(
+        f"{item.vendor} {item.source}" for item in items
+    ).lower()
+    for name, url in _VENDOR_NAME_INFORMATION_URLS.items():
+        if name in vendor_text:
+            return url
+    return ""
+
+
+def _linked_vendor_bullet(item: Item, accent: str) -> str:
+    """Render a vendor update with a direct link to the underlying advisory."""
+
+    return (
+        '<tr><td valign="top" style="padding:3px 8px 3px 0;'
+        f'color:{accent};font-weight:700;">•</td>'
+        '<td style="padding:3px 0;font-size:12px;line-height:1.35;">'
+        f'{_link(truncate(item.title, 62), item.link, source=item.source)}'
+        '</td></tr>'
+    )
+
+
 def _render_vendor_cards(items: list[Item], limit_per_vendor: int = 2) -> str:
-    """Group vendor intelligence into concise mini-cards."""
+    """Group vendor intelligence and link both advisories and vendor centres."""
 
     groups: dict[str, list[Item]] = {}
     for item in items:
@@ -1360,11 +1428,14 @@ def _render_vendor_cards(items: list[Item], limit_per_vendor: int = 2) -> str:
             continue
         accent = accents[vendor]
         bullets = "".join(
-            _compact_bullet(
-                truncate(item.title, 58),
-                accent,
-            )
+            _linked_vendor_bullet(item, accent)
             for item in vendor_items[:limit_per_vendor]
+        )
+        vendor_page = _vendor_information_url(vendor, vendor_items)
+        centre_link = (
+            _link("Vendor advisory centre ›", vendor_page)
+            if vendor_page
+            else ""
         )
         cells.append(
             f"""
@@ -1392,8 +1463,8 @@ def _render_vendor_cards(items: list[Item], limit_per_vendor: int = 2) -> str:
                     <table role="presentation" cellspacing="0" cellpadding="0">
                       {bullets}
                     </table>
-                    <div style="margin-top:5px;font-size:11px;">
-                      {_link("Open latest ›", vendor_items[0].link)}
+                    <div style="margin-top:7px;font-size:11px;">
+                      {centre_link}
                     </div>
                   </td>
                 </tr>
@@ -1424,96 +1495,109 @@ def _render_governance_cards(
     upcoming_events: list[dict[str, str]],
     limit: int = 5,
 ) -> str:
-    """Render compliance, standards and governance changes as mini-cards."""
+    """Render current changes plus a five-band governance forward look."""
 
-    records: list[tuple[str, str, str, str]] = []
-    for item in items:
-        if item.section in GOVERNANCE_SECTIONS:
-            records.append(
-                (
-                    item.section,
-                    item.title,
-                    _short_tldr(item, 95),
-                    item.link,
+    current_changes = [
+        item for item in items if item.section in GOVERNANCE_SECTIONS
+    ][:3]
+    current_html = ""
+    if current_changes:
+        current_html = (
+            '<div style="margin-bottom:8px;color:'
+            f'{DASHBOARD_COLOURS["muted"]};font-size:11px;font-weight:700;">'
+            'CURRENT CHANGES</div>'
+            '<table role="presentation" cellspacing="0" cellpadding="0">'
+            + "".join(
+                _compact_bullet(
+                    f"{item.title}: {_short_tldr(item, 110)}",
+                    DASHBOARD_COLOURS["green"],
                 )
+                for item in current_changes
             )
+            + '</table><div style="height:8px;"></div>'
+        )
+
+    grouped_events: dict[str, list[dict[str, str]]] = {
+        label: [] for label, _, _ in GOVERNANCE_HORIZONS
+    }
     for event in upcoming_events:
-        records.append(
-            (
-                event.get("topic") or "Deadline",
-                event.get("title") or "Governance milestone",
-                (
-                    f"{event.get('date', '')} — "
-                    f"{event.get('notes') or 'Upcoming implementation milestone.'}"
-                ),
-                event.get("source_url") or "",
-            )
-        )
+        horizon = event.get("horizon", "")
+        if horizon in grouped_events:
+            grouped_events[horizon].append(event)
 
-    records = records[:limit]
-    if not records:
-        return (
-            f'<p style="margin:0;color:{DASHBOARD_COLOURS["muted"]};">'
-            "No material governance or compliance change identified.</p>"
-        )
-
+    rows: list[str] = []
     accents = [
-        DASHBOARD_COLOURS["green"],
+        DASHBOARD_COLOURS["critical"],
+        DASHBOARD_COLOURS["high"],
         DASHBOARD_COLOURS["blue"],
         DASHBOARD_COLOURS["cyan"],
-        DASHBOARD_COLOURS["high"],
-        DASHBOARD_COLOURS["purple"],
+        DASHBOARD_COLOURS["green"],
     ]
-    cells = []
-    for index, (topic, title, summary, url) in enumerate(records):
+    for index, (label, _, _) in enumerate(GOVERNANCE_HORIZONS[:limit]):
+        events = grouped_events[label]
         accent = accents[index % len(accents)]
-        link_html = _link("Details ›", url) if url else ""
-        cells.append(
+        if events:
+            event = events[0]
+            title = event.get("title") or "Governance milestone"
+            date_text = event.get("date") or "Date not supplied"
+            notes = event.get("notes") or "Confirmed future milestone."
+            url = event.get("source_url") or ""
+            detail = (
+                f'<strong style="color:{DASHBOARD_COLOURS["text"]};">'
+                f'{_escape(title)}</strong><br>'
+                f'<span style="color:{DASHBOARD_COLOURS["muted"]};">'
+                f'{_escape(date_text)} — {_escape(truncate(notes, 135))}</span>'
+            )
+            link_html = _link("Details ›", url) if url else ""
+        else:
+            detail = (
+                f'<span style="color:{DASHBOARD_COLOURS["muted"]};">'
+                'No confirmed milestone currently recorded.</span>'
+            )
+            link_html = ""
+
+        rows.append(
             f"""
-            <td width="20%" valign="top" style="padding:5px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-                     style="background:{DASHBOARD_COLOURS['panel_alt']};
-                            border:1px solid {DASHBOARD_COLOURS['border']};
-                            border-radius:7px;">
-                <tr>
-                  <td style="padding:10px 9px 4px;color:{accent};
-                             font-size:11px;font-weight:700;">
-                    ◉ {_escape(topic)}
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:2px 9px;color:{DASHBOARD_COLOURS['text']};
-                             font-size:12px;font-weight:700;">
-                    {_escape(truncate(title, 58))}
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:4px 9px;color:{DASHBOARD_COLOURS['muted']};
-                             font-size:11px;line-height:1.35;">
-                    {_escape(truncate(summary, 90))}
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:5px 9px 10px;font-size:11px;">
-                    {link_html}
-                  </td>
-                </tr>
-              </table>
-            </td>
+            <tr>
+              <td width="150" valign="top" style="padding:9px 10px;
+                  border-top:1px solid {DASHBOARD_COLOURS['border']};
+                  color:{accent};font-size:12px;font-weight:700;">
+                {_escape(label)}
+              </td>
+              <td valign="top" style="padding:9px 10px;
+                  border-top:1px solid {DASHBOARD_COLOURS['border']};
+                  font-size:12px;line-height:1.4;">
+                {detail}
+              </td>
+              <td width="75" valign="middle" style="padding:9px 10px;
+                  border-top:1px solid {DASHBOARD_COLOURS['border']};
+                  font-size:11px;text-align:right;">
+                {link_html}
+              </td>
+            </tr>
             """
         )
 
-    while len(cells) < 5:
-        cells.append('<td width="20%" style="padding:5px;"></td>')
-
     return (
-        '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
-        '<tr>' + "".join(cells) + "</tr></table>"
+        current_html
+        + '<div style="margin-bottom:4px;color:'
+        + DASHBOARD_COLOURS["muted"]
+        + ';font-size:11px;font-weight:700;">FORWARD LOOK</div>'
+        + '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        + 'style="border-collapse:collapse;">'
+        + "".join(rows)
+        + '</table>'
     )
 
 
 def _render_action_cards(actions: list[str], limit: int = 5) -> str:
-    """Render the day's recommended actions as a compact checklist row."""
+    """Render recommended actions as full-width rows inside one panel."""
+
+    if not actions:
+        return (
+            f'<p style="margin:0;color:{DASHBOARD_COLOURS["muted"]};">'
+            'No immediate action identified.</p>'
+        )
 
     accents = [
         DASHBOARD_COLOURS["critical"],
@@ -1522,40 +1606,35 @@ def _render_action_cards(actions: list[str], limit: int = 5) -> str:
         DASHBOARD_COLOURS["green"],
         DASHBOARD_COLOURS["purple"],
     ]
-    icons = ["◈", "◎", "●", "▣", "□"]
-    cells = []
-
+    rows: list[str] = []
     for index, action in enumerate(actions[:limit], start=1):
         accent = accents[(index - 1) % len(accents)]
-        cells.append(
+        rows.append(
             f"""
-            <td width="20%" valign="top" style="padding:5px;">
-              <table role="presentation" width="100%" cellspacing="0" cellpadding="0"
-                     style="background:{DASHBOARD_COLOURS['panel_alt']};
-                            border:1px solid {accent}99;border-radius:7px;">
-                <tr>
-                  <td style="padding:10px 9px 4px;color:{accent};
-                             font-size:11px;font-weight:700;">
-                    {_escape(icons[index - 1])} {index} Action
-                  </td>
-                </tr>
-                <tr>
-                  <td style="padding:3px 9px 11px;color:{DASHBOARD_COLOURS['text']};
-                             font-size:11px;line-height:1.4;">
-                    {_escape(truncate(action, 125))}
-                  </td>
-                </tr>
-              </table>
-            </td>
+            <tr>
+              <td width="42" valign="top" style="padding:10px 8px;
+                  border-top:1px solid {DASHBOARD_COLOURS['border']};
+                  color:{accent};font-size:15px;font-weight:700;text-align:center;">
+                {index}
+              </td>
+              <td valign="top" style="padding:10px 12px;
+                  border-top:1px solid {DASHBOARD_COLOURS['border']};
+                  color:{DASHBOARD_COLOURS['text']};font-size:12px;line-height:1.45;">
+                {_bold_prefix_html(action)}
+              </td>
+            </tr>
             """
         )
 
-    while len(cells) < 5:
-        cells.append('<td width="20%" style="padding:5px;"></td>')
-
     return (
-        '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
-        '<tr>' + "".join(cells) + "</tr></table>"
+        '<table role="presentation" width="100%" cellspacing="0" cellpadding="0" '
+        'style="border-collapse:collapse;background:'
+        + DASHBOARD_COLOURS["panel_alt"]
+        + ';border:1px solid '
+        + DASHBOARD_COLOURS["border"]
+        + ';border-radius:7px;">'
+        + "".join(rows)
+        + '</table>'
     )
 
 
@@ -1828,7 +1907,7 @@ def render_html_report(
             str(governance_count),
             "✓",
             DASHBOARD_COLOURS["green"],
-            f"{upcoming_days}-day horizon",
+            "14d / 1m / 3m / 6m / 1y",
             "governance",
         )}
       </tr>

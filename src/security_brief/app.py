@@ -104,9 +104,9 @@ class RuntimeSettings:
             kev_days=kev_lookback_days(lookback_hours),
             upcoming_days=integer_setting(
                 "UPCOMING_GOVERNANCE_DAYS",
-                default=14,
-                minimum=1,
-                maximum=90,
+                default=365,
+                minimum=14,
+                maximum=365,
             ),
             exposure_max=integer_setting(
                 "EXPOSURE_MAX_ITEMS",

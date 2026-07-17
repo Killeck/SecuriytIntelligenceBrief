@@ -16,6 +16,25 @@ from .utils import (
     truncate,
 )
 
+
+GOVERNANCE_HORIZONS: tuple[tuple[str, int, int], ...] = (
+    ("Next 14 days", 0, 14),
+    ("15 days to 1 month", 15, 31),
+    ("1 to 3 months", 32, 92),
+    ("3 to 6 months", 93, 183),
+    ("6 to 12 months", 184, 365),
+)
+
+
+def governance_horizon(event_date: date, today: date) -> str:
+    """Return the non-overlapping forward-look band for an event date."""
+
+    days_until = (event_date - today).days
+    for label, minimum, maximum in GOVERNANCE_HORIZONS:
+        if minimum <= days_until <= maximum:
+            return label
+    return "Beyond 12 months"
+
 def load_configured_governance_events(
     today: date,
     days_ahead: int,
@@ -70,6 +89,7 @@ def load_configured_governance_events(
                 "source_url": clean_text(event.get("source_url")),
                 "notes": clean_text(event.get("notes")),
                 "origin": "Configured event register",
+                "horizon": governance_horizon(event_date, today),
             }
         )
 
@@ -109,6 +129,7 @@ def detect_governance_go_live_events(
                     "source_url": item.link,
                     "notes": truncate(item.summary, 320),
                     "origin": "Detected in current source item",
+                    "horizon": governance_horizon(event_date, today),
                 }
             )
 

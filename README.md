@@ -536,7 +536,7 @@ Tuesday–Sunday: 36 hours
 | `EXEC_NEWS_MAX_ITEMS` | `10` | Maximum discovery links |
 | `EXPOSURE_MAX_ITEMS` | `20` | Maximum dark-web and exposure signals |
 | `EXEC_NEWS_MIN_SCORE` | `24` | Minimum discovery relevance |
-| `UPCOMING_GOVERNANCE_DAYS` | `14` | Governance horizon |
+| `UPCOMING_GOVERNANCE_DAYS` | `365` | Governance forward-look horizon, grouped into 14 days, 1 month, 3 months, 6 months and 1 year |
 | `SOURCE_WORKERS` | `8` | Parallel source workers, bounded between 1 and 16 |
 | `MONITORED_BRANDS` | Empty | Optional monitored organisation names |
 | `MONITORED_DOMAINS` | Empty | Optional monitored domains |

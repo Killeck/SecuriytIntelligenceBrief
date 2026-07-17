@@ -12,7 +12,7 @@
   "events": [],
   "_instructions": [
     "Add confirmed future effective dates here when an obligation or standard change has been announced before the normal 36/72-hour reporting window.",
-    "Only enabled events dated today through the configured 14-day horizon are included in the briefing.",
+    "Only enabled events dated today through the configured one-year horizon are included and grouped into 14-day, 1-month, 3-month, 6-month and 1-year perspectives.",
     "Use primary-source URLs and review dates when official timelines change."
   ],
   "_example_disabled_event": {

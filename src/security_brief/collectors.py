@@ -226,6 +226,13 @@ def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
             release.get("CurrentReleaseDate")
             or release.get("currentReleaseDate")
         )
+        # Some MSRC responses and test fixtures omit InitialReleaseDate. In that
+        # case CurrentReleaseDate is the only available publication timestamp and
+        # must be treated as the initial date. Real revisions normally include
+        # both values, so the historical-catalogue replay protection remains.
+        if initial_date is None and current_date is not None:
+            initial_date = current_date
+
         is_new_release = bool(initial_date and initial_date >= cutoff)
         is_recent_revision = bool(
             not is_new_release

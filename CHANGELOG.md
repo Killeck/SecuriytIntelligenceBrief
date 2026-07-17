@@ -16,6 +16,25 @@ releases.
 The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and uses semantic-style versioning where practical.
 
 ---
+## 5.4.0 - 2026-07-17
+
+### Fixed
+
+- Made the MSRC collector tolerate responses that provide `CurrentReleaseDate`
+  without `InitialReleaseDate`, while retaining protection against replaying
+  historical CVRF catalogues.
+
+### Changed
+
+- Replaced Recommended Actions Today columns with full-width action rows.
+- Added direct links from vendor updates to both individual advisories and the
+  vendor's general security-advisory centre.
+- Expanded governance collection and presentation to a one-year forward look,
+  grouped into 14-day, 1-month, 3-month, 6-month and 1-year perspectives.
+- Bolded the label before the first colon in compact list rows, including
+  customer-sector impact, threat intelligence and detection listings.
+
+---
 ## 5.3.1 — 2026-07-17
 
 ### Fixed
