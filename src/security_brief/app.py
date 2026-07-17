@@ -72,7 +72,9 @@ class RuntimeSettings:
     """Environment-derived settings resolved once per pipeline execution."""
 
     username: str
-    password: str
+    client_id: str
+    client_secret: str
+    refresh_token: str
     recipient: str
     lookback_hours: int
     max_items: int
@@ -92,7 +94,9 @@ class RuntimeSettings:
         lookback_hours = reporting_window_hours()
         return cls(
             username=required("GMAIL_USERNAME"),
-            password=required("GMAIL_APP_PASSWORD"),
+            client_id=required("GMAIL_CLIENT_ID"),
+            client_secret=required("GMAIL_CLIENT_SECRET"),
+            refresh_token=required("GMAIL_REFRESH_TOKEN"),
             recipient=required("EMAIL_TO"),
             lookback_hours=lookback_hours,
             max_items=integer_setting(
@@ -444,7 +448,9 @@ def run_pipeline(settings: RuntimeSettings) -> None:
 
     send_email(
         settings.username,
-        settings.password,
+        settings.client_id,
+        settings.client_secret,
+        settings.refresh_token,
         settings.recipient,
         subject,
         text_body,
