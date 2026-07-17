@@ -16,6 +16,34 @@ releases.
 The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and uses semantic-style versioning where practical.
 
 ---
+## 5.3.1 — 2026-07-17
+
+### Fixed
+
+- Prevented vulnerability-research articles from being classified as confirmed
+  active exploitation or breach exposure without concrete incident evidence.
+- Recalibrated the Overall Threat model so a single KEV or critical CVSS record
+  normally produces Guarded or Elevated, not High or Critical.
+- Reserved High for explicitly widespread exploitation and Critical for verified
+  direct organisational exposure.
+- Stopped revised historical MSRC releases from replaying their complete CVE
+  catalogues as new daily vulnerabilities.
+- Limited new MSRC release output to exploited and CVSS 8.0+ records, capped by
+  `MSRC_MAX_CVES`.
+
+### Email deliverability
+
+- Restored the simple V5.0 SMTP envelope and sender format known to deliver
+  successfully through the organisation's mail gateway.
+- Removed custom automated-mail headers and the branded display-name sender.
+- Removed raw source warnings, HTTP errors and failed URLs from outbound email;
+  diagnostics remain available in GitHub Actions logs.
+- Replaced the Ransomware.live name with a neutral source label in outbound mail
+  and continued withholding unverified-claim URLs.
+- Added regression tests for source-warning hygiene, research false positives,
+  MSRC revision handling and conservative threat levels.
+
+---
 ## 5.3.0 — 2026-07-16
 
 ### Changed
@@ -42,7 +70,6 @@ The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and u
 - Added regression tests for neutral subjects, message headers, URL hygiene and
   threat-level false positives.
 - Removed the obsolete version suffix from the manual test workflow name.
-
 
 ---
 ## 5.2.0 - 2026-07-16

@@ -90,6 +90,19 @@ def _plain_email_link(
         return url
     return "Link withheld from email"
 
+def _email_source_label(source: str) -> str:
+    """Return a neutral label for sources unsuitable for corporate email."""
+
+    if source.lower() == "ransomware.live":
+        return "Open-source ransomware claim monitor"
+    return source
+
+
+def _source_health_label(source: str) -> str:
+    """Return a restrained source-health label for outbound reports."""
+
+    return _email_source_label(source)
+
 def render_item_text(item: Item, number: int) -> list[str]:
     """Render one primary intelligence item for the plain-text email body."""
 
@@ -227,7 +240,7 @@ def render_exposure_text(
         "",
         f"{number}. [{signal.severity}] {signal.title}",
         f"   Signal type: {signal.signal_type}",
-        f"   Source: {signal.source}",
+        f"   Source: {_email_source_label(signal.source)}",
         (
             "   Observed: "
             f"{signal.observed.strftime('%Y-%m-%d %H:%M UTC')}"
@@ -269,7 +282,7 @@ def render_exposure_html(signal: ExposureSignal) -> str:
           <td style="padding:2px 16px 2px 0">
             <strong>Source</strong>
           </td>
-          <td>{html.escape(signal.source)}</td>
+          <td>{html.escape(_email_source_label(signal.source))}</td>
         </tr>
         <tr>
           <td style="padding:2px 16px 2px 0">
@@ -535,7 +548,7 @@ def render_text_report(
         for signal in top_exposure:
             text.append(
                 f"- [{signal.severity}/{signal.confidence}] "
-                f"{signal.title} — {signal.source}: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}"
+                f"{signal.title} — {_email_source_label(signal.source)}: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}"
             )
 
     if ransomware_watch:
@@ -543,7 +556,7 @@ def render_text_report(
         for signal in ransomware_watch:
             text.append(
                 f"- [{signal.confidence}] {signal.title} "
-                f"— {signal.source}: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}"
+                f"— {_email_source_label(signal.source)}: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}"
             )
 
     if credential_watch:
@@ -551,7 +564,7 @@ def render_text_report(
         for signal in credential_watch:
             text.append(
                 f"- [{signal.confidence}] {signal.title} "
-                f"— {signal.source}: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}"
+                f"— {_email_source_label(signal.source)}: {_plain_email_link(signal.link, source=signal.source, confidence=signal.confidence)}"
             )
 
     if executive_news:
@@ -754,7 +767,7 @@ def render_text_report(
 
     for health in active_sources:
         text.append(
-            f"- {health['source']}: {health['items']} qualifying item(s)."
+            f"- {_source_health_label(health['source'])}: {health['items']} qualifying item(s)."
         )
 
     if quiet_source_count:
@@ -765,7 +778,7 @@ def render_text_report(
 
     for health in failed_sources:
         text.append(
-            f"- {health['source']}: FAILED — {health['detail']}"
+            f"- {_source_health_label(health['source'])}: temporarily unavailable."
         )
 
     text.extend(
@@ -800,10 +813,6 @@ def render_text_report(
             ),
         ]
     )
-
-    if warnings:
-        text.extend(["", "Source Warnings", "---------------"])
-        text.extend(f"- {warning}" for warning in warnings)
 
     text.extend(
         [
@@ -1908,7 +1917,7 @@ def render_html_report(
     for health in context.active_sources[:12]:
         health_rows.append(
             _compact_bullet(
-                f"{health['source']}: {health['items']} qualifying item(s)",
+                f"{_source_health_label(health['source'])}: {health['items']} qualifying item(s)",
                 DASHBOARD_COLOURS["green"],
             )
         )
@@ -1925,7 +1934,7 @@ def render_html_report(
     for health in context.failed_sources:
         health_rows.append(
             _compact_bullet(
-                f"{health['source']}: FAILED — {health.get('detail', '')}",
+                f"{_source_health_label(health['source'])}: temporarily unavailable",
                 DASHBOARD_COLOURS["critical"],
             )
         )
@@ -1956,20 +1965,6 @@ def render_html_report(
         + "</table>",
         DASHBOARD_COLOURS["purple"],
     )
-
-    warnings_panel = ""
-    if warnings:
-        warning_rows = "".join(
-            _compact_bullet(warning, DASHBOARD_COLOURS["critical"])
-            for warning in warnings[:10]
-        )
-        warnings_panel = _panel(
-            "Source Warnings",
-            '<table role="presentation" cellspacing="0" cellpadding="0">'
-            + warning_rows
-            + "</table>",
-            DASHBOARD_COLOURS["critical"],
-        )
 
     monitored_text = ""
     if context.monitored_references:
@@ -2079,7 +2074,6 @@ def render_html_report(
                 <tr><td>{detail_sections}</td></tr>
                 <tr><td>{watch_panel}</td></tr>
                 <tr><td>{source_panel}</td></tr>
-                <tr><td>{warnings_panel}</td></tr>
 
                 <tr>
                   <td style="padding:10px 4px 20px 4px;

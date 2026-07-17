@@ -151,13 +151,52 @@ def _msrc_cvss(vulnerability: dict[str, Any]) -> tuple[float | None, str]:
     return selected_score, selected_vector
 
 
-def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
-    """Collect newly released or revised Microsoft security-update records.
+def _msrc_exploitation_detected(vulnerability: dict[str, Any]) -> bool:
+    """Return whether MSRC explicitly confirms exploitation in the wild."""
 
-    The Security Update Guide API is authoritative Microsoft vulnerability data.
-    A qualifying release is expanded through its CVRF document and emitted as
-    one item per CVE. If the detail document contains no vulnerability array, a
-    release-level fallback item is retained so the source remains observable.
+    for threat in vulnerability.get("Threats", []):
+        if not isinstance(threat, dict):
+            continue
+        description = _nested_text(
+            threat.get("Description")
+            or threat.get("description")
+        ).lower()
+        value = _nested_text(
+            threat.get("Value")
+            or threat.get("value")
+            or threat.get("Status")
+            or threat.get("status")
+        ).lower()
+        combined = f"{description} {value}".strip()
+        if any(
+            marker in combined
+            for marker in (
+                "exploitation detected",
+                "exploited in the wild",
+                "active exploitation",
+            )
+        ):
+            if any(
+                negative in combined
+                for negative in (
+                    "not detected",
+                    "no exploitation",
+                    "false",
+                    "unknown",
+                )
+            ):
+                continue
+            return True
+    return False
+
+
+def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
+    """Collect current Microsoft releases without replaying old CVE catalogues.
+
+    A newly published release is expanded into selected CVEs. A revision to an
+    older monthly release is represented by one release-level item, because the
+    CVRF document contains the complete historical release and cannot safely be
+    treated as thousands of newly disclosed or newly exploited vulnerabilities.
     """
 
     headers = {
@@ -172,19 +211,28 @@ def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
     if not isinstance(releases, list):
         raise RuntimeError("MSRC updates response did not contain a release list")
 
-    items: list[Item] = []
+    release_items: list[Item] = []
+    vulnerability_items: list[Item] = []
 
     for release in releases:
         if not isinstance(release, dict):
             continue
 
-        published = _api_datetime(
-            release.get("CurrentReleaseDate")
-            or release.get("InitialReleaseDate")
-            or release.get("currentReleaseDate")
+        initial_date = _api_datetime(
+            release.get("InitialReleaseDate")
             or release.get("initialReleaseDate")
         )
-        if published is None or published < cutoff:
+        current_date = _api_datetime(
+            release.get("CurrentReleaseDate")
+            or release.get("currentReleaseDate")
+        )
+        is_new_release = bool(initial_date and initial_date >= cutoff)
+        is_recent_revision = bool(
+            not is_new_release
+            and current_date
+            and current_date >= cutoff
+        )
+        if not is_new_release and not is_recent_revision:
             continue
 
         release_id = clean_text(
@@ -200,6 +248,42 @@ def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
         release_severity = clean_text(
             release.get("Severity") or release.get("severity")
         )
+        published = initial_date if is_new_release else current_date
+        assert published is not None
+
+        if is_recent_revision:
+            release_items.append(
+                Item(
+                    title=f"MSRC revised: {release_title}",
+                    summary=(
+                        "Microsoft revised an existing Security Update Guide "
+                        "release. The complete historical CVRF catalogue is not "
+                        "replayed as new daily vulnerabilities; review the release "
+                        "notes for the specific changes."
+                    ),
+                    link="https://msrc.microsoft.com/update-guide/",
+                    published=published,
+                    source=source.name,
+                    vendor="Microsoft",
+                    section="Microsoft, Azure and Identity",
+                    category="Vendor advisory",
+                    score=source.base_score,
+                    affected=(
+                        "Microsoft products covered by the revised Security "
+                        "Update Guide release."
+                    ),
+                    action=(
+                        "Review the revised release notes and validate whether "
+                        "the changes affect deployed Microsoft products."
+                    ),
+                    why=(
+                        "This is an authoritative MSRC release revision, not a "
+                        "new declaration that every CVE in the release was "
+                        "disclosed or exploited today."
+                    ),
+                )
+            )
+            continue
 
         vulnerabilities: list[dict[str, Any]] = []
         if release_id:
@@ -223,13 +307,13 @@ def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
                 ]
 
         if not vulnerabilities:
-            items.append(
+            release_items.append(
                 Item(
                     title=release_title,
                     summary=(
-                        "Microsoft published or revised a Security Update Guide "
-                        "release. Review the linked release for affected products, "
-                        "CVEs, exploitability and deployment requirements."
+                        "Microsoft published a Security Update Guide release. "
+                        "Review the linked release for affected products, CVEs, "
+                        "exploitability and deployment requirements."
                     ),
                     link="https://msrc.microsoft.com/update-guide/",
                     published=published,
@@ -238,9 +322,18 @@ def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
                     section="Microsoft, Azure and Identity",
                     category="Vendor advisory",
                     score=source.base_score,
-                    affected="Microsoft products listed in the Security Update Guide release.",
-                    action="Review the release, validate affected assets and deploy applicable Microsoft security updates.",
-                    why="This is authoritative vulnerability and remediation information from Microsoft MSRC.",
+                    affected=(
+                        "Microsoft products listed in the Security Update Guide "
+                        "release."
+                    ),
+                    action=(
+                        "Review the release, validate affected assets and deploy "
+                        "applicable Microsoft security updates."
+                    ),
+                    why=(
+                        "This is authoritative vulnerability and remediation "
+                        "information from Microsoft MSRC."
+                    ),
                 )
             )
             continue
@@ -257,25 +350,13 @@ def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
             title = _nested_text(vulnerability.get("Title")) or release_title
             summary = _msrc_summary(vulnerability, release_title)
             cvss_score, cvss_vector = _msrc_cvss(vulnerability)
+            exploited = _msrc_exploitation_detected(vulnerability)
 
-            threat_text = " ".join(
-                _nested_text(value)
-                for value in vulnerability.get("Threats", [])
-                if _nested_text(value)
-            ).lower()
-            exploited = any(
-                marker in threat_text
-                for marker in (
-                    "exploitation detected",
-                    "exploited in the wild",
-                    "active exploitation",
-                )
-            )
+            # Keep the daily report focused on exploited and high-severity CVEs.
+            if not exploited and (cvss_score is None or cvss_score < 8.0):
+                continue
 
-            category = "Active exploitation" if exploited else "Vendor advisory"
-            if cvss_score is not None and cvss_score >= 8.0 and not exploited:
-                category = "Critical vulnerability"
-
+            category = "Active exploitation" if exploited else "Critical vulnerability"
             score = source.base_score
             if exploited:
                 score += 45
@@ -283,7 +364,7 @@ def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
                 score += 40
             elif cvss_score is not None and cvss_score >= 9.0:
                 score += 25
-            elif cvss_score is not None and cvss_score >= 8.0:
+            else:
                 score += 15
 
             severity = release_severity or "Not available"
@@ -297,11 +378,14 @@ def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
                 else:
                     severity = "LOW"
 
-            items.append(
+            vulnerability_items.append(
                 Item(
                     title=f"{cve} — {title}",
                     summary=summary,
-                    link=f"https://msrc.microsoft.com/update-guide/vulnerability/{cve}",
+                    link=(
+                        "https://msrc.microsoft.com/update-guide/"
+                        f"vulnerability/{cve}"
+                    ),
                     published=published,
                     source=source.name,
                     vendor="Microsoft",
@@ -313,13 +397,45 @@ def fetch_msrc_updates(source: Source, cutoff: datetime) -> list[Item]:
                     cvss_score=cvss_score,
                     cvss_severity=severity,
                     cvss_vector=cvss_vector,
-                    affected="Microsoft products and versions identified in the Security Update Guide record.",
-                    action="Validate affected Microsoft assets, deploy the applicable update or mitigation, and investigate exposure when exploitation is reported.",
-                    why="Microsoft MSRC is the authoritative source for Microsoft vulnerability and security-update information.",
+                    affected=(
+                        "Microsoft products and versions identified in the "
+                        "Security Update Guide record."
+                    ),
+                    action=(
+                        "Validate affected Microsoft assets, deploy the applicable "
+                        "update or mitigation, and investigate exposure when "
+                        "exploitation is reported."
+                    ),
+                    why=(
+                        "Microsoft MSRC is the authoritative source for Microsoft "
+                        "vulnerability and security-update information."
+                    ),
                 )
             )
 
-    return items
+    max_cves = integer_setting(
+        "MSRC_MAX_CVES",
+        default=75,
+        minimum=1,
+        maximum=250,
+    )
+    vulnerability_items.sort(
+        key=lambda item: (
+            item.exploited,
+            item.cvss_score or 0.0,
+            item.score,
+        ),
+        reverse=True,
+    )
+    if len(vulnerability_items) > max_cves:
+        print(
+            "WARNING: MSRC daily CVE output limited to "
+            f"{max_cves} of {len(vulnerability_items)} qualifying records.",
+            file=sys.stderr,
+        )
+        vulnerability_items = vulnerability_items[:max_cves]
+
+    return release_items + vulnerability_items
 
 
 def fetch_rss(source: Source, cutoff: datetime) -> list[Item]:

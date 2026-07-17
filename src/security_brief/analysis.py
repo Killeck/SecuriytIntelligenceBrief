@@ -56,6 +56,64 @@ _HISTORICAL_CONTEXT_TERMS = (
     "analysis of the",
 )
 
+_RESEARCH_CONTEXT_TERMS = (
+    "vulnerability management",
+    "security research",
+    "research report",
+    "researchers analysed",
+    "researchers analyzed",
+    "mean time-to-exploit",
+    "time-to-exploit",
+    "exploit development",
+    "proof of concept",
+    "proof-of-concept",
+    "m-trends",
+    "technical analysis",
+    "blueprint",
+)
+
+_CONCRETE_INCIDENT_TERMS = (
+    "breached",
+    "compromised",
+    "stolen credentials",
+    "credentials exposed",
+    "data stolen",
+    "data leaked",
+    "victim claim",
+    "claimed responsibility",
+    "ransom demand",
+    "encrypted systems",
+    "confirmed incident",
+    "confirmed compromise",
+    "used in attacks",
+    "attacks exploiting",
+)
+
+_WIDESPREAD_TERMS = (
+    "widespread exploitation",
+    "mass exploitation",
+    "large-scale exploitation",
+    "internet-wide scanning",
+    "internet wide scanning",
+    "global exploitation campaign",
+    "wormable",
+    "broad exploitation campaign",
+)
+
+_PRIORITY_VENDOR_TERMS = (
+    "microsoft",
+    "fortinet",
+    "palo alto",
+    "cisco",
+    "crowdstrike",
+    "google",
+    "aws",
+    "apple",
+    "okta",
+    "hpe",
+    "aruba",
+)
+
 _HIGH_IMPACT_TERMS = (
     "pre-authentication",
     "pre-auth",
@@ -96,6 +154,59 @@ def _explicit_exploitation(text: str) -> bool:
     return _contains_any(text, _EXPLICIT_EXPLOITATION_TERMS)
 
 
+def _confirmed_exploitation(
+    title: str,
+    summary: str,
+    source: Source,
+) -> bool:
+    """Require concrete, source-aware evidence of real-world exploitation.
+
+    Research articles frequently discuss exploitation metrics, techniques or
+    proof-of-concept work without reporting an active campaign. Those records
+    must not drive the enterprise threat level.
+    """
+
+    combined = f"{title} {summary}".lower()
+    if not _explicit_exploitation(combined):
+        return False
+
+    title_has_evidence = _explicit_exploitation(title.lower())
+    cves = extract_cves(combined)
+    authoritative = (
+        source.vendor.lower() in _PRIORITY_VENDOR_TERMS
+        or _contains_any(source.name, _AUTHORITATIVE_SOURCE_TERMS)
+        or source.section in {
+            "Known Exploited Vulnerabilities",
+            "Other Vendor Advisories",
+            "Fortinet",
+            "Microsoft, Azure and Identity",
+        }
+    )
+
+    if _contains_any(combined, _RESEARCH_CONTEXT_TERMS) and not (
+        title_has_evidence or cves
+    ):
+        return False
+
+    return bool(title_has_evidence or cves or authoritative)
+
+
+def _is_widespread_item(item: Item) -> bool:
+    """Return whether reporting explicitly indicates broad exploitation."""
+
+    return _contains_any(
+        f"{item.title} {item.summary} {item.why}",
+        _WIDESPREAD_TERMS,
+    )
+
+
+def _is_priority_vendor(item: Item) -> bool:
+    """Return whether an item concerns a priority enterprise vendor."""
+
+    vendor = item.vendor.lower()
+    return any(term in vendor for term in _PRIORITY_VENDOR_TERMS)
+
+
 def _current_zero_day(title: str, summary: str) -> bool:
     """Identify current zero-day reporting while suppressing retrospectives."""
 
@@ -120,73 +231,104 @@ def _epss_probability(item: Item) -> float:
 
 
 def item_threat_score(item: Item) -> tuple[int, list[str]]:
-    """Score one primary item using evidence, impact and urgency.
+    """Score one primary item using evidence, impact and operational reach.
 
-    The collection relevance score is deliberately excluded. It ranks content
-    for inclusion but is not a measure of operational threat severity.
+    This is intentionally more conservative than the collection relevance
+    score. A single KEV or critical CVSS record represents urgent triage, but
+    does not by itself mean the enterprise threat landscape is High.
     """
 
     score = 0
     basis: list[str] = []
     combined = f"{item.title} {item.summary} {item.why}".lower()
-    authoritative = item.kev or _contains_any(item.source, _AUTHORITATIVE_SOURCE_TERMS)
+    authoritative = item.kev or _contains_any(
+        item.source,
+        _AUTHORITATIVE_SOURCE_TERMS,
+    )
+    widespread = _is_widespread_item(item)
 
     if item.exploited:
-        score += 28
+        score += 18
         basis.append("confirmed exploitation")
     if item.kev:
-        score += 18
+        score += 12
         basis.append("CISA KEV")
     if item.zero_day:
-        score += 15
+        score += 10
         basis.append("current zero-day")
 
     if item.cvss_score is not None:
         if item.cvss_score >= 10.0:
-            score += 10
+            score += 7
             basis.append("CVSS 10.0")
         elif item.cvss_score >= 9.0:
-            score += 7
+            score += 5
             basis.append("CVSS critical")
         elif item.cvss_score >= 8.0:
-            score += 4
+            score += 3
             basis.append("CVSS high")
 
     epss = _epss_probability(item)
     if epss >= 0.50:
-        score += 12
+        score += 8
         basis.append("EPSS at least 50%")
     elif epss >= 0.20:
-        score += 7
+        score += 4
         basis.append("EPSS at least 20%")
     elif epss >= 0.05:
-        score += 3
+        score += 2
         basis.append("EPSS at least 5%")
 
     if _contains_any(combined, _HIGH_IMPACT_TERMS):
-        score += 10
+        score += 7
         basis.append("high-impact attack path")
+    if widespread:
+        score += 10
+        basis.append("widespread exploitation evidence")
+    if _is_priority_vendor(item):
+        score += 4
+        basis.append("priority enterprise vendor")
 
     if item.category == "Nation-state activity":
-        score += 10
+        score += 6
         basis.append("credible state-linked campaign")
     elif item.ransomware:
-        score += 8 if (item.exploited or item.kev) else 3
+        score += 4 if (item.exploited or item.kev) else 2
         basis.append("ransomware relevance")
 
-    if authoritative and (item.exploited or item.kev or item.zero_day or item.cvss_score):
-        score += 5
+    if authoritative and (
+        item.exploited
+        or item.kev
+        or item.zero_day
+        or item.cvss_score is not None
+    ):
+        score += 3
         basis.append("authoritative source")
 
     if _contains_any(combined, _HISTORICAL_CONTEXT_TERMS) and not item.exploited:
         score -= 12
         basis.append("historical context")
 
-    routine = not any((item.exploited, item.kev, item.zero_day, item.ransomware))
-    if routine and (item.cvss_score is None or item.cvss_score < 8.0) and item.category != "Nation-state activity":
-        score = min(score, 12)
+    routine = not any(
+        (item.exploited, item.kev, item.zero_day, item.ransomware)
+    )
+    if routine and (
+        item.cvss_score is None or item.cvss_score < 8.0
+    ) and item.category != "Nation-state activity":
+        score = min(score, 18)
+    elif routine and item.cvss_score is not None and item.cvss_score >= 9.0:
+        # A non-exploited critical-severity vulnerability warrants normal
+        # Guarded attention, but not an elevated enterprise state.
+        score = max(score, 20)
 
-    return max(0, min(score, 74)), basis
+    # KEV confirms exploitation, but without a zero-day or evidence of broad
+    # operational reach it remains an Elevated enterprise concern.
+    if item.kev and not item.zero_day and not widespread:
+        score = min(score, 49)
+    if item.exploited and not item.zero_day and not widespread:
+        score = min(score, 54)
+
+    return max(0, min(score, 79)), basis
 
 
 def _direct_exposure(signal: ExposureSignal) -> bool:
@@ -199,14 +341,14 @@ def _direct_exposure(signal: ExposureSignal) -> bool:
 
 
 def exposure_threat_score(signal: ExposureSignal) -> tuple[int, list[str]]:
-    """Score exposure intelligence while respecting source confidence."""
+    """Score exposure intelligence while preserving confidence boundaries."""
 
     score = 0
     basis: list[str] = []
     severity_points = {
-        "Critical": 25,
-        "High": 18,
-        "Elevated": 10,
+        "Critical": 20,
+        "High": 14,
+        "Elevated": 8,
         "Guarded": 3,
         "Low": 0,
     }
@@ -214,59 +356,71 @@ def exposure_threat_score(signal: ExposureSignal) -> tuple[int, list[str]]:
 
     confidence = signal.confidence.lower()
     if signal.confidence == "Domain ownership verified":
-        score += 35
+        score += 45
         basis.append("verified monitored domain")
     elif signal.confidence == "Verified":
-        score += 20
+        score += 15
         basis.append("verified dataset")
     elif signal.confidence == "Primary or research source":
-        score += 12
+        score += 6
         basis.append("primary or research source")
     elif "secondary" in confidence:
         basis.append("secondary reporting")
     elif "unverified" in confidence:
-        score -= 25
+        score -= 20
         basis.append("unverified claim")
 
     type_points = {
-        "Credential Exposure and Stealer Logs": 20,
-        "Ransomware and Extortion": 12,
-        "Data Breaches and Leaks": 10,
-        "Initial Access and Cybercrime Markets": 12,
-        "Brand, Impersonation and Phishing": 8,
-        "Dark Web and Criminal Ecosystem": 4,
+        "Credential Exposure and Stealer Logs": 18,
+        "Ransomware and Extortion": 9,
+        "Data Breaches and Leaks": 8,
+        "Initial Access and Cybercrime Markets": 9,
+        "Brand, Impersonation and Phishing": 6,
+        "Dark Web and Criminal Ecosystem": 3,
     }
     score += type_points.get(signal.signal_type, 0)
 
+    combined = f"{signal.title} {signal.summary}".lower()
+    if _contains_any(combined, _CONCRETE_INCIDENT_TERMS):
+        score += 5
+        basis.append("concrete incident language")
+
     if _direct_exposure(signal):
-        score += 25
+        score += 20
         basis.append("direct organisational exposure")
 
     score = max(0, score)
     if "unverified" in confidence:
         score = min(score, 14)
     elif "secondary" in confidence:
-        score = min(score, 34)
+        score = min(score, 29)
+    elif signal.confidence == "Primary or research source" and not _direct_exposure(signal):
+        score = min(score, 39)
     elif signal.confidence == "Verified" and not _direct_exposure(signal):
-        score = min(score, 54)
+        score = min(score, 59)
 
     return min(score, 100), basis
 
 
 def _level_for_score(score: int) -> int:
-    """Map the weighted score to the five-level presentation scale."""
+    """Map a conservative operational score to the five-level scale."""
 
-    if score >= 75:
+    if score >= 80:
         return 1
-    if score >= 55:
+    if score >= 60:
         return 2
-    if score >= 35:
+    if score >= 40:
         return 3
-    if score >= 15:
+    if score >= 20:
         return 4
     return 5
 
-def classify(text: str, source: Source) -> tuple[str, int]:
+def classify(
+    text: str,
+    source: Source,
+    *,
+    allow_active_exploitation: bool = True,
+) -> tuple[str, int]:
     """Assign a deterministic category and relevance weight to source text.
 
     Rules are evaluated in configured order. Source-specific fallbacks preserve
@@ -278,6 +432,8 @@ def classify(text: str, source: Source) -> tuple[str, int]:
     # Rules are deliberately first-match: ordering therefore expresses
     # category precedence as well as keyword membership.
     for category, keywords, weight in CATEGORY_RULES:
+        if category == "Active exploitation" and not allow_active_exploitation:
+            continue
         if any(keyword in lowered for keyword in keywords):
             return category, weight
 
@@ -378,12 +534,7 @@ def build_item(
     published: datetime,
     cutoff: datetime,
 ) -> Item | None:
-    """Build a validated and scored primary security item.
-
-    The function applies the reporting cutoff, source topic filters, marketing
-    suppression, category scoring, recency weighting and initial advisory text.
-    Records that do not meet the source or time criteria return ``None``.
-    """
+    """Build a validated and scored primary security item."""
 
     title = clean_text(title)
     summary = clean_text(summary)
@@ -402,13 +553,15 @@ def build_item(
     if suppress_marketing(combined):
         return None
 
-    category, weight = classify(combined, source)
     cves = extract_cves(combined)
+    exploited = _confirmed_exploitation(title, summary, source)
+    category, weight = classify(
+        combined,
+        source,
+        allow_active_exploitation=exploited,
+    )
 
     score = source.base_score + weight
-
-    # Freshness is a small relevance modifier; source authority and threat
-    # characteristics remain the dominant score components.
     age = datetime.now(timezone.utc) - published
     if age <= timedelta(hours=24):
         score += 12
@@ -417,15 +570,11 @@ def build_item(
 
     if cves:
         score += 10
-
     if "critical" in combined.lower() or "kritisk" in combined.lower():
         score += 10
 
-    lowered_combined = combined.lower()
     zero_day = _current_zero_day(title, summary)
-    exploited = _explicit_exploitation(lowered_combined)
     ransomware = category == "Ransomware"
-
     if zero_day:
         score += 35
 
@@ -453,6 +602,7 @@ def build_item(
         action=ACTIONS.get(category, ACTIONS["General security"]),
         why=WHY.get(category, WHY["General security"]),
     )
+
 
 def executive_news_relevance(
     title: str,
@@ -850,11 +1000,11 @@ def build_open_source_exposure_signals(
     monitored_domains: tuple[str, ...],
     max_items: int = 18,
 ) -> list[ExposureSignal]:
-    """Derive exposure signals from collected primary and news records.
+    """Derive credible exposure signals from incident-oriented reporting.
 
-    Deterministic rules identify ransomware, credential, breach, access-market and
-    brand-abuse language. Matches to monitored brands or domains receive a strong
-    relevance increase but remain labelled according to source confidence.
+    Vulnerability research and exploit-development articles are excluded unless
+    they contain concrete incident language or directly mention a monitored
+    reference. This prevents research material from becoming a breach signal.
     """
 
     records = [
@@ -864,7 +1014,6 @@ def build_open_source_exposure_signals(
             item.source,
             item.link,
             item.published,
-            item.score,
             "Primary or research source",
         )
         for item in items
@@ -876,25 +1025,19 @@ def build_open_source_exposure_signals(
             link.source,
             link.link,
             link.published,
-            link.score,
-            "Secondary reporting",
+            (
+                "Unverified claim"
+                if link.source == "Ransomware.live"
+                or "Unverified claim" in link.tags
+                else "Secondary reporting"
+            ),
         )
         for link in news_links
     )
 
     signals: list[ExposureSignal] = []
 
-    # Primary and secondary reporting share the same exposure taxonomy, but
-    # their confidence labels remain different in the final advisory.
-    for (
-        title,
-        summary,
-        source,
-        link,
-        observed,
-        base_score,
-        confidence,
-    ) in records:
+    for title, summary, source, link, observed, confidence in records:
         combined = f" {title} {summary} "
         lowered = combined.lower()
         matches = matched_monitored_references(
@@ -902,9 +1045,19 @@ def build_open_source_exposure_signals(
             monitored_brands,
             monitored_domains,
         )
+        concrete_incident = _contains_any(
+            lowered,
+            _CONCRETE_INCIDENT_TERMS,
+        )
+        research_context = _contains_any(
+            lowered,
+            _RESEARCH_CONTEXT_TERMS,
+        )
+
+        if research_context and not concrete_incident and not matches:
+            continue
 
         matched_rule = None
-
         for (
             signal_type,
             keywords,
@@ -915,24 +1068,33 @@ def build_open_source_exposure_signals(
             keyword_hits = sum(
                 1 for keyword in keywords if keyword in lowered
             )
-
             if keyword_hits == 0:
                 continue
 
-            candidate_score = base_score + weight + min(
-                keyword_hits * 4,
-                16,
-            )
+            if (
+                confidence == "Primary or research source"
+                and not concrete_incident
+                and not matches
+                and keyword_hits < 2
+            ):
+                continue
 
-                # Direct references to configured organisations or domains are
-            # promoted strongly, but the confidence value is not upgraded.
+            confidence_base = {
+                "Primary or research source": 18,
+                "Secondary reporting": 10,
+                "Unverified claim": 0,
+            }.get(confidence, 0)
+            candidate_score = (
+                confidence_base
+                + weight
+                + min(keyword_hits * 4, 12)
+            )
+            if concrete_incident:
+                candidate_score += 8
             if matches:
                 candidate_score += 35
 
-            if (
-                matched_rule is None
-                or candidate_score > matched_rule[0]
-            ):
+            if matched_rule is None or candidate_score > matched_rule[0]:
                 matched_rule = (
                     candidate_score,
                     signal_type,
@@ -944,16 +1106,17 @@ def build_open_source_exposure_signals(
             continue
 
         score, signal_type, severity, action = matched_rule
-
-        if score >= 115:
+        if confidence == "Unverified claim":
+            severity = "Guarded"
+        elif matches and score >= 90:
             severity = "Critical"
-        elif score >= 90 and severity in {"Guarded", "Elevated"}:
+        elif score >= 72 and severity in {"Guarded", "Elevated"}:
             severity = "High"
+        elif score >= 50 and severity == "Guarded":
+            severity = "Elevated"
 
         affected = (
-            "Potential monitored reference: "
-            + ", ".join(matches)
-            + "."
+            "Potential monitored reference: " + ", ".join(matches) + "."
             if matches
             else (
                 "Organisations, suppliers and sectors matching the reported "
@@ -979,7 +1142,8 @@ def build_open_source_exposure_signals(
             )
         )
 
-    return signals[:max_items * 3]
+    return signals[: max_items * 3]
+
 
 def deduplicate_exposure_signals(
     signals: list[ExposureSignal],
@@ -1041,24 +1205,38 @@ def advisory_status(
     items: list[Item],
     exposure_signals: list[ExposureSignal],
 ) -> dict[str, Any]:
-    """Calculate an independent customer-facing advisory level."""
+    """Calculate an independent, confidence-aware advisory level."""
 
     enterprise = defcon_status(items)
     candidates: list[tuple[int, list[str], bool]] = [
-        (int(enterprise.get("score", 0)), list(enterprise.get("basis", [])), enterprise["level"] == 1)
+        (
+            int(enterprise.get("score", 0)),
+            list(enterprise.get("basis", [])),
+            False,
+        )
     ]
     for signal in exposure_signals:
         score, basis = exposure_threat_score(signal)
         candidates.append((score, basis, _direct_exposure(signal)))
 
-    score, basis, critical_allowed = max(candidates, key=lambda value: value[0])
-    credible_count = sum(1 for value, _, _ in candidates if value >= 35)
+    score, basis, direct_exposure = max(
+        candidates,
+        key=lambda value: value[0],
+    )
+
+    credible_count = sum(
+        1
+        for value, candidate_basis, _ in candidates
+        if value >= 40
+        and "secondary reporting" not in candidate_basis
+        and "unverified claim" not in candidate_basis
+    )
     if credible_count >= 3:
-        score += 5
+        score += 3
         basis = basis + ["multiple credible developments"]
 
-    if not critical_allowed:
-        score = min(score, 74)
+    if not direct_exposure:
+        score = min(score, 79)
 
     level = _level_for_score(score)
     definition = DEFCON_LEVELS[level]
@@ -1229,7 +1407,12 @@ def priority(item: Item) -> str:
 
 
 def defcon_status(items: list[Item]) -> dict[str, Any]:
-    """Calculate a weighted enterprise cyber-threat level."""
+    """Calculate the enterprise threat landscape without panic escalation.
+
+    The highest item remains important, but High requires explicit evidence of
+    widespread exploitation. Critical is reserved for direct organisational
+    exposure and is therefore handled by ``advisory_status``.
+    """
 
     scored = [(item, *item_threat_score(item)) for item in items]
     if scored:
@@ -1237,25 +1420,27 @@ def defcon_status(items: list[Item]) -> dict[str, Any]:
     else:
         item, score, basis = None, 0, []
 
-    elevated_count = sum(1 for _, value, _ in scored if value >= 35)
-    high_count = sum(1 for _, value, _ in scored if value >= 55)
-    if elevated_count >= 3:
-        score += 5
+    credible_count = sum(1 for _, value, _ in scored if value >= 40)
+    if credible_count >= 3:
+        score += 4
         basis = basis + ["multiple elevated developments"]
-    if high_count >= 3:
-        score += 5
-        basis = basis + ["multiple high-priority developments"]
+    if credible_count >= 6:
+        score += 3
+        basis = basis + ["sustained elevated activity"]
 
-    critical_allowed = bool(
+    high_allowed = bool(
         item
         and item.exploited
-        and item.kev
-        and (item.cvss_score or 0) >= 9.0
-        and high_count >= 2
+        and (item.kev or item.zero_day)
+        and _is_widespread_item(item)
     )
-    if not critical_allowed:
-        score = min(score, 74)
+    if not high_allowed:
+        score = min(score, 59)
+        if item and score >= 40:
+            basis = basis + ["enterprise exposure not confirmed"]
 
+    # Global intelligence alone cannot declare a Critical enterprise state.
+    score = min(score, 79)
     level = _level_for_score(score)
     status = dict(DEFCON_LEVELS[level])
     status["level"] = level

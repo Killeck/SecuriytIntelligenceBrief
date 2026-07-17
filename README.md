@@ -30,8 +30,9 @@ external-exposure intelligence:
 The report presents two related levels:
 
 - **Security Advisory Level:** immediate exposure and customer-advisory impact.
-- **Enterprise Cyber Threat Level:** the retained DEFCON-style CISO view based
-  on exploitation, ransomware, nation-state and vulnerability intelligence.
+- **Enterprise Cyber Threat Level:** a conservative DEFCON-style CISO view
+  based on confirmed exploitation, operational reach and source confidence. A
+  single KEV or critical CVSS record does not automatically create a High state.
 
 The pipeline uses public and authorised sources. It does **not** connect to
 onion services, criminal forums, ransomware leak sites, stolen-data
@@ -72,7 +73,8 @@ stylesheet or hosted dashboard is required.
 - Continues when individual sources fail.
 - Suppresses empty report sections.
 - Collapses successful zero-result sources into one quiet summary line.
-- Keeps failed sources visible in Source Coverage and Source Warnings.
+- Keeps failed-source names visible in Source Coverage while retaining raw
+  errors and URLs in GitHub Actions logs rather than the email body.
 - Labels exposure claims by confidence rather than presenting all claims as
   confirmed incidents.
 
