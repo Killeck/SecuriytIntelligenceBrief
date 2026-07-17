@@ -24,6 +24,7 @@ from .analysis import (
 from .config import (
     BRIEF_NAME,
     BRIEF_VERSION,
+    DEFCON_LEVELS,
     GOVERNANCE_SECTIONS,
     MONITORED_GOVERNANCE_TOPICS,
 )
@@ -1052,6 +1053,65 @@ def _metric_card(
     """
 
 
+def _render_defcon_triangle(current_level: int) -> str:
+    """Render a layered triangle that explains the enterprise DEFCON scale."""
+
+    layer_widths = {1: "36%", 2: "50%", 3: "64%", 4: "78%", 5: "92%"}
+    descriptions = {
+        1: "Critical: immediate action, direct exposure or exceptional verified threat.",
+        2: "High: urgent action required for relevant active exploitation.",
+        3: "Elevated: credible increased risk requiring enhanced attention.",
+        4: "Guarded: meaningful developments, but no immediate direct exposure.",
+        5: "Low: routine background threat activity and normal monitoring.",
+    }
+
+    rows: list[str] = []
+    for level in range(1, 6):
+        definition = DEFCON_LEVELS[level]
+        is_current = level == current_level
+        current_label = ""
+        if is_current:
+            current_label = (
+                '<div style="margin-top:4px;font-size:10px;font-weight:700;'
+                f'color:{definition["text_colour"]};">Current enterprise level</div>'
+            )
+        border = '2px solid #FFFFFF' if is_current else f'1px solid {DASHBOARD_COLOURS["border"]}'
+        rows.append(
+            f"""
+            <tr>
+              <td align="center" style="padding:0 0 6px 0;">
+                <table role="presentation" width="{layer_widths[level]}" cellspacing="0" cellpadding="0"
+                       style="width:{layer_widths[level]};margin:0 auto;border-collapse:separate;">
+                  <tr>
+                    <td style="padding:8px 10px;border-radius:6px;border:{border};
+                               background:{definition['colour']};
+                               color:{definition['text_colour']};text-align:center;">
+                      <div style="font-size:12px;font-weight:700;line-height:1.2;">
+                        DEFCON {level} — {_escape(definition['label'])}
+                      </div>
+                      <div style="font-size:10px;line-height:1.35;margin-top:3px;">
+                        {_escape(descriptions[level])}
+                      </div>
+                      {current_label}
+                    </td>
+                  </tr>
+                </table>
+              </td>
+            </tr>
+            """
+        )
+
+    current_display = _escape(DEFCON_LEVELS[current_level]["label"])
+    return (
+        f'<div style="color:{DASHBOARD_COLOURS["muted"]};font-size:11px;line-height:1.35;margin-bottom:10px;">'
+        f'Layered enterprise threat scale. Current enterprise level: <strong style="color:{DASHBOARD_COLOURS["text"]};">DEFCON {current_level} — {current_display}</strong>.'
+        '</div>'
+        '<table role="presentation" width="100%" cellspacing="0" cellpadding="0">'
+        + ''.join(rows)
+        + '</table>'
+    )
+
+
 def _bold_prefix_html(text: str) -> str:
     """Escape text and bold the first meaningful label before a colon."""
 
@@ -1920,7 +1980,13 @@ def render_html_report(
         DASHBOARD_COLOURS["blue"],
         anchor_id="executive-summary",
     )
-    
+
+    defcon_panel = _panel(
+        "Enterprise DEFCON Scale",
+        _render_defcon_triangle(int(enterprise_status["level"])),
+        DASHBOARD_COLOURS["purple"],
+    )
+
     vulnerability_panel = _panel(
         "1. Critical Vulnerabilities / Zero-Days",
         _render_vulnerability_table(items),
@@ -2107,6 +2173,7 @@ def render_html_report(
                           {vulnerability_panel}
                         </td>
                         <td width="34%" valign="top" style="padding-left:6px;">
+                          {defcon_panel}
                           {executive_panel}
                         </td>
                       </tr>
