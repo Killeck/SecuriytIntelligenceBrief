@@ -77,7 +77,9 @@ jobs:
       - name: Generate and send daily security brief
         env:
           GMAIL_USERNAME: ${{ secrets.GMAIL_USERNAME }}
-          GMAIL_APP_PASSWORD: ${{ secrets.GMAIL_APP_PASSWORD }}
+          GMAIL_CLIENT_ID: ${{ secrets.GMAIL_CLIENT_ID }}
+          GMAIL_CLIENT_SECRET: ${{ secrets.GMAIL_CLIENT_SECRET }}
+          GMAIL_REFRESH_TOKEN: ${{ secrets.GMAIL_REFRESH_TOKEN }}
           EMAIL_TO: ${{ secrets.EMAIL_TO }}
           NVD_API_KEY: ${{ secrets.NVD_API_KEY }}
           NVD_MAX_CVES: "75"
