@@ -3,13 +3,33 @@
     "NSM updates",
     "Sikkerhetsloven",
     "NIS2",
+    "EU AI Act",
     "ISO 9001",
     "ISO 14001",
     "ISO/IEC 27001",
     "ISO/IEC 33000 series",
     "ISO 50001"
   ],
-  "events": [],
+  "events": [
+    {
+      "enabled": true,
+      "date": "2026-08-02",
+      "title": "EU AI Act general application date",
+      "topic": "EU AI Act",
+      "source": "EUR-Lex",
+      "source_url": "https://eur-lex.europa.eu/eli/reg/2024/1689/oj/eng",
+      "notes": "Most remaining provisions of Regulation (EU) 2024/1689 apply. Article 6(1) and its corresponding obligations apply from 2 August 2027."
+    },
+    {
+      "enabled": true,
+      "date": "2026-08-02",
+      "title": "EU AI Act GPAI enforcement powers begin",
+      "topic": "EU AI Act / General-purpose AI",
+      "source": "European Commission",
+      "source_url": "https://digital-strategy.ec.europa.eu/en/faqs/guidelines-obligations-general-purpose-ai-providers",
+      "notes": "Commission enforcement powers for general-purpose AI provider obligations begin. The GPAI Code of Practice remains a voluntary compliance tool."
+    }
+  ],
   "_instructions": [
     "Add confirmed future effective dates here when an obligation or standard change has been announced before the normal 36/72-hour reporting window.",
     "Only enabled events dated today through the configured one-year horizon are included and grouped into 14-day, 1-month, 3-month, 6-month and 1-year perspectives.",
