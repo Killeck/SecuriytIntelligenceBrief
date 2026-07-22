@@ -84,6 +84,7 @@ MONITORED_GOVERNANCE_TOPICS = (
     "NSM updates",
     "Sikkerhetsloven",
     "NIS2",
+    "EU AI Act",
     "ISO/IEC 27001",
     "ISO 50001",
     "ISO 9001",
@@ -99,7 +100,7 @@ DEFCON_LEVELS = {
     },
     2: {
         "label": "High",
-        "colour": "#E65100",
+        "colour": "#F57C00",
         "text_colour": "#FFFFFF",
     },
     3: {
