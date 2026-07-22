@@ -95,7 +95,7 @@ jobs:
           EXEC_NEWS_MAX_ITEMS: ${{ inputs.discovery_max || '10' }}
           EXPOSURE_MAX_ITEMS: ${{ inputs.exposure_max || '20' }}
           EXEC_NEWS_MIN_SCORE: "24"
-          UPCOMING_GOVERNANCE_DAYS: "14"
+          UPCOMING_GOVERNANCE_DAYS: "365"
           SOURCE_WORKERS: "8"
 
         run: python src/send_security_advisory.py
