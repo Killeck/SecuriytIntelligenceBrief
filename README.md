@@ -36,7 +36,7 @@ The report presents two related levels:
 
 The pipeline uses public and authorised sources. It does **not** connect to
 onion services, criminal forums, ransomware leak sites, stolen-data
-repositories or illicit marketplaces.
+repositories or illicit marketplace.
 
 
 ## Dashboard email layout
