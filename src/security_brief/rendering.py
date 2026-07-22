@@ -10,6 +10,7 @@ classified records, which makes it testable without network or SMTP access.
 from __future__ import annotations
 
 import html
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable
 from urllib.parse import urlsplit
@@ -428,7 +429,8 @@ def build_report_context(
         critical_special=[
             item
             for item in items
-            if item.zero_day or item.cvss_score == 10.0
+            if item.zero_day
+            or (item.cvss_score is not None and item.cvss_score >= 9.0)
         ],
         top_advisories=items[:5],
         top_exposure=exposure_signals[:5],
@@ -615,15 +617,15 @@ def render_text_report(
                 f"— {news_link.source}: {_plain_email_link(news_link.link, source=news_link.source, tags=news_link.tags)}"
             )
 
-    text.extend(["", "Zero-Day and CVSS 10.0"])
+    text.extend(["", "Critical Vulnerabilities and Zero-Days"])
 
     if critical_special:
         for item in critical_special:
             markers = []
             if item.zero_day:
                 markers.append("Zero-Day")
-            if item.cvss_score == 10.0:
-                markers.append("CVSS 10.0")
+            if item.cvss_score is not None and item.cvss_score >= 9.0:
+                markers.append(f"CVSS {item.cvss_score:.1f} Critical")
             text.append(
                 f"- {', '.join(markers)}: {item.title} "
                 f"— {item.source}: {item.link}"
@@ -825,7 +827,7 @@ def render_text_report(
             "- Fortinet, HPE and Aruba advisories affecting customer estates.",
             "- OT, energy, oil and gas, and critical-infrastructure targeting.",
             "- Scandinavian and European cybercrime or law-enforcement developments.",
-            "- Material NIS2, Sikkerhetsloven, DORA and standards deadlines.",
+            "- Material EU AI Act, NIS2, Sikkerhetsloven, DORA and standards deadlines.",
         ]
     )
 
@@ -876,6 +878,7 @@ DASHBOARD_COLOURS = {
     "critical": "#ff5f57",
     "high": "#ff9f43",
     "medium": "#f6c945",
+    "highlight": "#f6c768",
     "blue": "#6ea8fe",
     "cyan": "#53c7ea",
     "green": "#4dd4ac",
@@ -927,6 +930,7 @@ def _link(
     source: str = "",
     confidence: str = "",
     tags: Iterable[str] = (),
+    colour: str | None = None,
 ) -> str:
     """Render a restrained link or safe withheld-link label."""
 
@@ -940,9 +944,10 @@ def _link(
             f'<span style="color:{DASHBOARD_COLOURS["muted"]};">'
             f'{_escape(label)} (link withheld)</span>'
         )
+    resolved_colour = colour or DASHBOARD_COLOURS["link"]
     return (
         f'<a href="{html.escape(url, quote=True)}" '
-        f'style="color:{DASHBOARD_COLOURS["link"]};'
+        f'style="color:{resolved_colour};'
         'text-decoration:underline;">'
         f'{_escape(label)}</a>'
     )
@@ -1058,11 +1063,11 @@ def _render_defcon_triangle(current_level: int) -> str:
 
     layer_widths = {1: "36%", 2: "50%", 3: "64%", 4: "78%", 5: "92%"}
     descriptions = {
-        1: "Critical: immediate action, direct exposure or exceptional verified threat.",
-        2: "High: urgent action required for relevant active exploitation.",
-        3: "Elevated: credible increased risk requiring enhanced attention.",
-        4: "Guarded: meaningful developments, but no immediate direct exposure.",
-        5: "Low: routine background threat activity and normal monitoring.",
+        1: "Immediate action: direct exposure or exceptional verified threat.",
+        2: "Urgent action required for relevant active exploitation.",
+        3: "Credible increased risk requiring enhanced attention.",
+        4: "Meaningful developments, but no immediate direct exposure.",
+        5: "Routine background threat activity and normal monitoring.",
     }
 
     rows: list[str] = []
@@ -1118,7 +1123,7 @@ def _bold_prefix_html(text: str) -> str:
     prefix, separator, remainder = text.partition(":")
     if separator and prefix.strip() and remainder.strip():
         return (
-            f'<strong style="color:{DASHBOARD_COLOURS["text"]};">'
+            f'<strong style="color:{DASHBOARD_COLOURS["highlight"]};">'
             f'{_escape(prefix.strip())}</strong>: {_escape(remainder.strip())}'
         )
     return _escape(text)
@@ -1159,18 +1164,14 @@ def _render_vulnerability_table(items: list[Item], limit: int = 8) -> str:
 
     selected = [
         item for item in items
-        if (
-            item.zero_day
-            or item.kev
-            or item.exploited
-            or (item.cvss_score is not None and item.cvss_score >= 8.0)
-        )
+        if item.zero_day
+        or (item.cvss_score is not None and item.cvss_score >= 9.0)
     ][:limit]
 
     if not selected:
         return (
             f'<p style="margin:0;color:{DASHBOARD_COLOURS["muted"]};">'
-            "No critical or high-priority vulnerabilities identified.</p>"
+            "No critical or zero-day vulnerabilities identified.</p>"
         )
 
     rows = []
@@ -1230,6 +1231,91 @@ def _render_vulnerability_table(items: list[Item], limit: int = 8) -> str:
     """
 
 
+_KNOWN_THREAT_ACTORS = (
+    "Scattered Spider",
+    "Lazarus Group",
+    "Salt Typhoon",
+    "Volt Typhoon",
+    "Midnight Blizzard",
+    "Sandworm",
+    "Lotus Blossom",
+    "Cl0p",
+    "LockBit",
+    "Akira",
+    "Black Basta",
+    "RansomHub",
+    "Qilin",
+    "ALPHV",
+    "BlackCat",
+    "Rhysida",
+    "Hunters International",
+    "DragonForce",
+    "Medusa",
+    "INC Ransom",
+)
+
+
+def _threat_actor(item: Item) -> tuple[str, str]:
+    """Extract a named or suspected actor from source-provided text.
+
+    The helper does not infer attribution from technology, geography or tactics.
+    It only surfaces actor names already present in the headline or summary and
+    labels tentative source language as suspected.
+    """
+
+    text = f"{item.title} {item.summary}"
+    lowered = text.lower()
+    tentative_terms = (
+        "suspected",
+        "likely",
+        "believed",
+        "linked to",
+        "associated with",
+        "possibly",
+    )
+    confidence = (
+        "Suspected attribution"
+        if any(term in lowered for term in tentative_terms)
+        else "Named by source"
+    )
+
+    for actor in _KNOWN_THREAT_ACTORS:
+        if actor.lower() in lowered:
+            return actor, confidence
+
+    identifier = re.search(
+        r"\b(?:APT|UNC|DEV|TA)[-_]?\d{2,6}\b",
+        text,
+        flags=re.IGNORECASE,
+    )
+    if identifier:
+        return identifier.group(0).upper(), confidence
+
+    patterns = (
+        r"(?:attributed to|claimed by|linked to|associated with|tracked as|"
+        r"known as|operated by|members? of)\s+(?:the\s+)?"
+        r"([A-Z][A-Za-z0-9._-]+(?:\s+[A-Z][A-Za-z0-9._-]+){0,3})",
+        r"(?:ransomware|cybercrime|threat)\s+(?:group|gang|actor)\s+"
+        r"([A-Z][A-Za-z0-9._-]+(?:\s+[A-Z][A-Za-z0-9._-]+){0,3})",
+    )
+    for pattern in patterns:
+        match = re.search(pattern, text)
+        if not match:
+            continue
+        actor = match.group(1).strip(" .,:;–—-")
+        actor = re.sub(
+            r"\s+(?:ransomware|cybercrime|threat|hacking)\s+"
+            r"(?:group|gang|actor).*$",
+            "",
+            actor,
+            flags=re.IGNORECASE,
+        )
+        if actor:
+            return actor, confidence
+
+    return "", ""
+
+
 def _render_threat_rows(items: list[Item], limit: int = 5) -> str:
     """Render active exploitation, ransomware and actor activity as short rows."""
 
@@ -1259,6 +1345,18 @@ def _render_threat_rows(items: list[Item], limit: int = 5) -> str:
         severity = priority(item)
         colour = _severity_colour(severity)
         impact = item.category.replace(" activity", "")
+        actor, actor_confidence = _threat_actor(item)
+        actor_detail = (
+            f'<strong style="color:{DASHBOARD_COLOURS["highlight"]};">'
+            f'{_escape(actor)}</strong><br>'
+            f'<span style="color:{DASHBOARD_COLOURS["muted"]};">'
+            f'{_escape(actor_confidence)}</span>'
+            if actor
+            else (
+                f'<span style="color:{DASHBOARD_COLOURS["muted"]};">'
+                'Not identified</span>'
+            )
+        )
         rows.append(
             f"""
             <tr>
@@ -1268,7 +1366,7 @@ def _render_threat_rows(items: list[Item], limit: int = 5) -> str:
               </td>
               <td valign="top" style="padding:9px 8px;
                   border-top:1px solid {DASHBOARD_COLOURS['border']};">
-                <div style="color:{DASHBOARD_COLOURS['text']};
+                <div style="color:{DASHBOARD_COLOURS['highlight']};
                             font-size:13px;font-weight:700;">
                   {_escape(item.title)} &nbsp; {_pill(severity, colour)}
                 </div>
@@ -1277,10 +1375,16 @@ def _render_threat_rows(items: list[Item], limit: int = 5) -> str:
                   {_escape(_short_tldr(item, 145))}
                 </div>
               </td>
+              <td width="155" valign="middle" style="padding:9px 8px;
+                  border-top:1px solid {DASHBOARD_COLOURS['border']};
+                  color:{DASHBOARD_COLOURS['muted']};font-size:11px;">
+                Threat actor<br>
+                {actor_detail}
+              </td>
               <td width="125" valign="middle" style="padding:9px 8px;
                   border-top:1px solid {DASHBOARD_COLOURS['border']};
                   color:{DASHBOARD_COLOURS['muted']};font-size:11px;">
-                Impact<br>
+                Activity<br>
                 <strong style="color:{DASHBOARD_COLOURS['text']};">
                   {_escape(impact)}
                 </strong>
@@ -1355,7 +1459,7 @@ def _render_exposure_cards(signals: list[ExposureSignal], limit: int = 4) -> str
                   </td>
                 </tr>
                 <tr>
-                  <td style="padding:3px 10px;color:{DASHBOARD_COLOURS['text']};
+                  <td style="padding:3px 10px;color:{DASHBOARD_COLOURS['highlight']};
                              font-size:12px;font-weight:700;">
                     {_escape(truncate(signal.title, 70))}
                   </td>
@@ -1432,7 +1536,7 @@ def _linked_vendor_bullet(item: Item, accent: str) -> str:
         '<tr><td valign="top" style="padding:3px 8px 3px 0;'
         f'color:{accent};font-weight:700;">•</td>'
         '<td style="padding:3px 0;font-size:12px;line-height:1.35;">'
-        f'{_link(truncate(item.title, 62), item.link, source=item.source)}'
+        f'{_link(truncate(item.title, 62), item.link, source=item.source, colour=DASHBOARD_COLOURS["highlight"])}'
         '</td></tr>'
     )
 
@@ -1508,7 +1612,7 @@ def _render_vendor_cards(items: list[Item], limit_per_vendor: int = 2) -> str:
                   <td style="padding:11px 10px 4px;color:{accent};
                              font-size:16px;font-weight:700;">
                     {_escape(icons[vendor])}
-                    <span style="font-size:12px;color:{DASHBOARD_COLOURS['text']};">
+                    <span style="font-size:12px;color:{DASHBOARD_COLOURS['highlight']};">
                       {_escape(vendor)}
                     </span>
                   </td>
@@ -1597,18 +1701,25 @@ def _render_governance_cards(
         events = grouped_events[label]
         accent = accents[index % len(accents)]
         if events:
-            event = events[0]
-            title = event.get("title") or "Governance milestone"
-            date_text = event.get("date") or "Date not supplied"
-            notes = event.get("notes") or "Confirmed future milestone."
-            url = event.get("source_url") or ""
-            detail = (
-                f'<strong style="color:{DASHBOARD_COLOURS["text"]};">'
-                f'{_escape(title)}</strong><br>'
-                f'<span style="color:{DASHBOARD_COLOURS["muted"]};">'
-                f'{_escape(date_text)} — {_escape(truncate(notes, 135))}</span>'
-            )
-            link_html = _link("Details ›", url) if url else ""
+            detail_parts: list[str] = []
+            link_parts: list[str] = []
+            for event in events[:2]:
+                title = event.get("title") or "Governance milestone"
+                date_text = event.get("date") or "Date not supplied"
+                notes = event.get("notes") or "Confirmed future milestone."
+                url = event.get("source_url") or ""
+                detail_parts.append(
+                    '<div style="margin-bottom:7px;">'
+                    f'<strong style="color:{DASHBOARD_COLOURS["highlight"]};">'
+                    f'{_escape(title)}</strong><br>'
+                    f'<span style="color:{DASHBOARD_COLOURS["muted"]};">'
+                    f'{_escape(date_text)} — {_escape(truncate(notes, 135))}'
+                    '</span></div>'
+                )
+                if url:
+                    link_parts.append(_link("Details ›", url))
+            detail = "".join(detail_parts)
+            link_html = "<br><br>".join(link_parts)
         else:
             detail = (
                 f'<span style="color:{DASHBOARD_COLOURS["muted"]};">'
@@ -1719,7 +1830,13 @@ def _render_news_digest(news: list[NewsLink], limit: int = 6) -> str:
               <td valign="top" style="padding:6px 6px;
                    border-top:1px solid {DASHBOARD_COLOURS['border']};">
                 <div style="font-size:12px;font-weight:700;">
-                  {_link(item.title, item.link, source=item.source, tags=item.tags)}
+                  {_link(
+                      item.title,
+                      item.link,
+                      source=item.source,
+                      tags=item.tags,
+                      colour=DASHBOARD_COLOURS["highlight"],
+                  )}
                 </div>
                 <div style="color:{DASHBOARD_COLOURS['muted']};
                             font-size:11px;margin-top:2px;">
@@ -2098,7 +2215,7 @@ def render_html_report(
         "New CISA KEV additions and confirmed active exploitation.",
         "Microsoft, Fortinet, HPE, Aruba, cloud and identity advisories.",
         "OT, energy and critical-infrastructure targeting.",
-        "Material NIS2, Sikkerhetsloven, DORA and standards deadlines.",
+        "Material EU AI Act, NIS2, Sikkerhetsloven, DORA and standards deadlines.",
     )
     watch_panel = _panel(
         "Security Advisory and CISO Watch List",
@@ -2181,22 +2298,8 @@ def render_html_report(
                   </td>
                 </tr>
 
-                <tr>
-                  <td>
-                    <table role="presentation" width="100%" cellspacing="0"
-                           cellpadding="0">
-                      <tr>
-                        <td width="50%" valign="top" style="padding-right:6px;">
-                          {threat_panel}
-                        </td>
-                        <td width="50%" valign="top" style="padding-left:6px;">
-                          {news_panel}
-                        </td>
-                      </tr>
-                    </table>
-                  </td>
-                </tr>
-
+                <tr><td>{threat_panel}</td></tr>
+                <tr><td>{news_panel}</td></tr>
                 <tr><td>{exposure_panel}</td></tr>
                 <tr><td>{vendor_panel}</td></tr>
 
