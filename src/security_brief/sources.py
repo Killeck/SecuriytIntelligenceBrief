@@ -10,11 +10,6 @@ from .models import Source
 
 EXECUTIVE_NEWS_RSS = (
     {
-        "name": "Cyber Security News",
-        "url": "https://cybersecuritynews.com/feed/",
-        "base_score": 4,
-    },
-    {
         "name": "The Hacker News",
         "url": "https://feeds.feedburner.com/TheHackersNews",
         "base_score": 8,
@@ -39,40 +34,29 @@ EXECUTIVE_NEWS_RSS = (
 
 EXECUTIVE_NEWS_HTML = (
     {
-        "name": "Reuters Cybersecurity",
-        "url": "https://www.reuters.com/technology/cybersecurity/",
-        "base_score": 14,
-
-        # Reuters places article links in several parts of the page.
-        # The article_path_regex below performs the important filtering.
+        "name": "Cyber Security News",
+        "url": "https://cybersecuritynews.com/",
+        "base_score": 4,
         "selectors": (
-            "main a[href]",
+            "main h2 a[href]",
+            "main h3 a[href]",
+            "h3 a[href]",
         ),
-
         "allowed_hosts": (
-            "www.reuters.com",
-            "reuters.com",
+            "cybersecuritynews.com",
+            "www.cybersecuritynews.com",
         ),
-    
-        # Reuters article URLs normally end with a publication date.
-        # Cybersecurity stories can appear under technology, world,
-        # legal, business or sustainability.
-        "article_path_regex": (
-            r"^/(technology|world|legal|business|sustainability)/"
-            r".+-\d{4}-\d{2}-\d{2}/?$"
-        ),
-    
+        "article_path_regex": r"^/[a-z0-9][a-z0-9-]+/?$",
         "exclude": (
-            "/video/",
-            "/pictures/",
-            "/graphics/",
-            "/podcasts/",
-            "/commentary/",
-            "/breakingviews/",
-            "/sponsored-content/",
-            "/press-releases/",
+            "/author/",
+            "/category/",
+            "/tag/",
+            "/about",
+            "/contact",
+            "/privacy",
+            "top-10-best",
+            "best-",
         ),
-    
         "max_candidates": 35,
     },
     {
@@ -199,7 +183,6 @@ EXECUTIVE_NEWS_HTML = (
 )
 
 EXECUTIVE_NEWS_SOURCE_LIMITS = {
-    "Reuters Cybersecurity": 2,
     "SecurityWeek": 2,
     "BleepingComputer": 2,
     "The Record": 2,
@@ -302,6 +285,14 @@ RSS_SOURCES = (
         section="SOC and Detection Engineering",
     ),
     Source(
+        name="Rapid7 Vulnerability Research",
+        vendor="Rapid7",
+        url="https://www.rapid7.com/blog/tag/research/rss/",
+        source_type="rss",
+        base_score=34,
+        section="Vulnerability Research",
+    ),
+    Source(
         name="SigmaHQ Releases",
         vendor="SigmaHQ",
         url="https://github.com/SigmaHQ/sigma/releases.atom",
@@ -313,38 +304,16 @@ RSS_SOURCES = (
 
 HTML_SOURCES = (
     Source(
-        name="Rapid7 Vulnerability Research",
-        vendor="Rapid7",
-        url="https://www.rapid7.com/blog/tag/vulnerability-research/",
-        source_type="html",
-        base_score=34,
-        section="Vulnerability Research",
-        selectors=(
-            "main h2 a[href]",
-            "main h3 a[href]",
-            "article a[href]",
-            "a[href*='/blog/post/']",
-        ),
-        include_patterns=("rapid7.com/blog/post/",),
-        exclude_patterns=(
-            "/products/",
-            "/services/",
-            "/resources/",
-            "webinar",
-        ),
-        max_candidates=40,
-    ),
-    Source(
         name="Shadowserver Foundation",
         vendor="Shadowserver",
-        url="https://www.shadowserver.org/news/",
+        url="https://www.shadowserver.org/news-insights/",
         source_type="html",
         base_score=32,
         section="Threat Intelligence",
         selectors=(
-            "main h2 a[href]",
+            "main h4 a[href]",
             "main h3 a[href]",
-            "article a[href]",
+            "h4 a[href]",
             ".entry-title a[href]",
         ),
         include_patterns=("shadowserver.org/news/",),
