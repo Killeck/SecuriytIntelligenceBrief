@@ -1205,19 +1205,32 @@ def advisory_status(
     items: list[Item],
     exposure_signals: list[ExposureSignal],
 ) -> dict[str, Any]:
-    """Calculate an independent, confidence-aware advisory level."""
+    """Calculate a confidence-aware operational advisory level.
+
+    Broad external intelligence may justify Guarded attention, but it must not
+    elevate the organisation above the enterprise threat level unless the signal
+    is tied to an authorised monitored-domain query. This prevents unrelated
+    public breach volume from presenting as direct organisational exposure.
+    """
 
     enterprise = defcon_status(items)
+    enterprise_score = int(enterprise.get("score", 0))
     candidates: list[tuple[int, list[str], bool]] = [
         (
-            int(enterprise.get("score", 0)),
+            enterprise_score,
             list(enterprise.get("basis", [])),
             False,
         )
     ]
+
     for signal in exposure_signals:
-        score, basis = exposure_threat_score(signal)
-        candidates.append((score, basis, _direct_exposure(signal)))
+        signal_score, signal_basis = exposure_threat_score(signal)
+        direct = _direct_exposure(signal)
+        if not direct:
+            # External reporting without verified organisational linkage is
+            # contextual intelligence: useful, but no higher than DEFCON 4.
+            signal_score = min(signal_score, 39)
+        candidates.append((signal_score, signal_basis, direct))
 
     score, basis, direct_exposure = max(
         candidates,
@@ -1226,17 +1239,20 @@ def advisory_status(
 
     credible_count = sum(
         1
-        for value, candidate_basis, _ in candidates
+        for value, candidate_basis, direct in candidates
         if value >= 40
+        and (direct or value == enterprise_score)
         and "secondary reporting" not in candidate_basis
         and "unverified claim" not in candidate_basis
     )
     if credible_count >= 3:
         score += 3
-        basis = basis + ["multiple credible developments"]
+        basis = basis + ["multiple directly relevant developments"]
 
     if not direct_exposure:
-        score = min(score, 79)
+        # Preserve a genuinely elevated or high enterprise condition, but do not
+        # let unrelated external exposure reporting exceed it.
+        score = min(score, max(enterprise_score, 39))
 
     level = _level_for_score(score)
     definition = DEFCON_LEVELS[level]
@@ -1394,14 +1410,26 @@ def deduplicate(items: Iterable[Item]) -> list[Item]:
     return list(unique.values())
 
 def priority(item: Item) -> str:
-    """Translate weighted operational risk into a display priority."""
+    """Translate CVSS and operational evidence into a display priority.
+
+    CVSS severity bands are hard floors. Operational evidence such as confirmed
+    exploitation or CISA KEV status may raise priority, but can never reduce the
+    severity implied by the vulnerability's CVSS base score.
+    """
 
     score, _ = item_threat_score(item)
-    if score >= 65:
+    cvss = item.cvss_score
+
+    if item.zero_day or (cvss is not None and cvss >= 9.0) or score >= 65:
         return "Critical"
-    if score >= 45:
+    if (
+        item.exploited
+        or item.kev
+        or (cvss is not None and cvss >= 7.0)
+        or score >= 45
+    ):
         return "High"
-    if score >= 20:
+    if (cvss is not None and cvss >= 4.0) or score >= 20:
         return "Medium"
     return "Monitor"
 
