@@ -16,6 +16,36 @@ releases.
 The format broadly follows [Keep a Changelog](https://keepachangelog.com/) and uses semantic-style versioning where practical.
 
 ---
+## 5.5.0 - 2026-07-17
+
+### Fixed
+
+- Replaced failing Rapid7, Shadowserver and Cyber Security News collection
+  configurations with their current supported index or feed patterns.
+- Removed Reuters from unattended discovery rather than presenting a permanently
+  failing public scraper as an active source.
+- Enforced CVSS severity floors so CVSS 9.0–10.0 vulnerabilities display as
+  Critical and CVSS 7.0–8.9 vulnerabilities display as High.
+- Restricted the Critical Vulnerabilities / Zero-Days dashboard to zero-days and
+  CVSS 9.0–10.0 vulnerabilities.
+- Prevented unrelated public breach and exposure reporting from raising the
+  overall advisory above DEFCON 4 without verified monitored-domain exposure.
+
+### Changed
+
+- Expanded Active Exploitation / Threat Actor Activity to the full report width
+  and added source-derived threat actor attribution with confidence labels.
+- Added the EU AI Act 2 August 2026 general application and GPAI enforcement
+  milestones to the governance forward look.
+- Extended the configured governance horizon to one year in scheduled and test
+  workflows.
+- Changed prominent item titles to a light amber highlight for improved contrast
+  in the dark email layout.
+- Changed DEFCON 2 High to a clearly distinct orange and removed repeated
+  severity labels from the explanatory text inside each DEFCON layer.
+- Added regression coverage for source configuration, CVSS severity, critical
+  filtering, DEFCON calibration, actor attribution and EU AI Act milestones.
+---
 ## 5.4.0 - 2026-07-17
 
 ### Fixed
